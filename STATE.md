@@ -4,20 +4,38 @@
 
 Confirm the physical touch port in the iOS GUI. **Native controller startup and
 real finger coordinates are verified in XNU; GUI interaction is not yet verified.**
-User rejected two-hour waits. Use short bounded tests. The next UI test is ten
-minutes, with no synthetic gestures. After starting it, stop for owner feedback.
+User rejected two-hour waits. Use short bounded tests. The ten-minute UI
+test failed to open apps; no further tests tonight.
 
 ## Current phone / next action
 
-Phone recovered automatically to postmarketOS after the successful 90-second
-v21 native touch capture. v22 UI-test image is now installed and readback
-verified; **reboot is the final action of this turn**. Its 600-second supervisor
-captures logs and returns to PMOS. After boot, owner should open Settings, scroll,
-and lift all fingers. Do not mistake logging overlay or scripted input for touch.
+**Stopped for the night at the owner's request. Phone is running postmarketOS.**
+The original 64 MiB PMOS boot image was restored over SSH and its full checksum
+verified, without another reboot. Next normal restart boots PMOS, not the test.
+No scheduled or background test is pending. iOS system/data images remain intact.
 
-v22: out/begonia-chain-xnu-forced/ios16-touch-ui-v22.img
+v22 completed its ten-minute automatic capture and returned to PMOS. Capture
+checksums and exact request ID validated. Owner reports the home screen appeared
+but tapping apps still does not open them. This is NOT a fully working touch UI.
+
+Captured evidence: kernel posts type1/type2/type3 (down/move/release), backboardd
+reads real samples, and the digitizer reports modes0xff then0xfe (wake-only).
+No mode0x1 appears in the retained capture; the circular log may omit intermediate
+history. In inject.c, wake-only DOWN becomes a power-button wake event and its
+finger sequence is swallowed. This is a concrete next investigation path, not a
+proven complete root cause. Also distinguish app launch with frozen rendering
+from taps dropped before dispatch.
+
+Next session: inspect HID/wake/display-state handling and collect per-event
+producer/consumer traces. Optional `--touch-debug` now adds existing touch_lat=1
+instrumentation to a future payload; it has NOT been boot-tested yet. Do not
+re-run long tests or claim the hardware driver alone completes UI interaction.
+
+v22 retained: out/begonia-chain-xnu-forced/ios16-touch-ui-v22.img,
 49766400 bytes; SHA256
 0105f617fa90110732a554be712dcf67f04edfc78787052e3402df0c4a7800af.
+Native capture: private/device/native-v22-mirror.bin and decoded log/JSON.
+Original-boot restoration report: private/device/pmos-overnight-restore.txt.
 
 ## Verified touch work
 

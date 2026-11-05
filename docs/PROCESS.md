@@ -542,3 +542,10 @@ Ported the validated FIFO ordering/completion method into begonia_touch.c, resto
 
 
 v21 native result: capture validates both checksums and exact payload request ID. Native XNU reports zero of eight section readback differences, firmware boot A0, subsequent reset A1, version1a/e5, bounds1080x2340, and polling active. Owner's physical strokes appear as real type1/type2 finger0 events with changing normalized coordinates. This verifies the native controller/input-queue path. Prepared and installed v22 for end-to-end GUI confirmation, 600 seconds (not two hours), touch enabled and synthetic swipes removed. Same validated kernel/support assets; SHA256 0105f617fa90110732a554be712dcf67f04edfc78787052e3402df0c4a7800af, 49766400 bytes. v21 installed prefix verified before write, v22 readback verified. Reboot will be the final action so owner can test Settings, scrolling and releases.
+
+
+### v22 UI failure and overnight stop — 2026-11-06
+
+Owner reports apps still do not open. Allowed the ten-minute test to capture and recover automatically; captured both checksums and request ID match v22. Kernel logged physical down/move/release and backboardd read real samples. Retained mode changes are0xff then0xfe; no0x1 is visible, but circular-log loss prevents claiming it never occurred. inject.c explicitly converts DOWN in mode0xfe to a power-button wake and suppresses that finger sequence, so HID/wake/display state is the next specific investigation. Also check whether applications launch but frames stop updating. Added optional --touch-debug to enable existing per-event touch_lat instrumentation for a future diagnostic; no further image was installed.
+
+Owner asked to finish for the night. Saved capture locally and restored original PMOS boot via SSH, checking current v22 prefix first and full original SHA256 after write. No reboot after restoration; phone remains in PMOS, next normal boot is PMOS, no overnight experiment pending. iOS data/system images untouched. Updated STATE.md and touch status: physical controller/queue path works, GUI taps still fail, port not complete.

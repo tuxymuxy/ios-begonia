@@ -39,9 +39,13 @@ interrupt driver.
 - **Native XNU v21**: capture checksums and request ID verified; all eight section
   samples match, firmware status A0 then A1, parameters 1080x2340, and real
   physical down/move events reach the kernel input queue.
-- v22 is the ten-minute UI confirmation test. No synthetic swipes are enabled.
-  Opening Settings, scrolling and finger release in the GUI still need owner
-  confirmation. Do not label the complete UI path verified prematurely.
+- v22 ten-minute UI test: owner could not open apps despite the home screen.
+  The validated capture includes kernel down/move/release and backboardd reads.
+  Recorded digitizer mode is wake-only0xfe, with no active0x1 visible in retained
+  data. Wake-only handling in inject.c consumes finger sequences as wake-button
+  events. Investigate that path and display state next; the circular log does
+  not prove that mode never changed. No synthetic gestures were enabled.
+  The complete GUI touch path is NOT working/verified.
 
 ## Linux bring-up tools
 
