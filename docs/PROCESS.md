@@ -497,7 +497,7 @@ Actions taken:
    - CRC length register write: on NT36672A (`hw_crc == 1`), `ILM_LENGTH_ADDR` (`0x3F118`) and `DLM_LENGTH_ADDR` (`0x3F130`) are 2 bytes, not 3 bytes. Writing 3 bytes to `0x3F130` overflowed into `0x3F132` (`DMA_CRC_EN_ADDR`), corrupting the hardware CRC enable register. Corrected length writes to 2 bytes.
    - Spurious dummy-byte check: removed `if (rx[1] != 0xff)` from `read_address()`. In SPI transactions, `rx[1]` is a turnaround dummy cycle byte and not a status indicator.
 5. Recompiled XNU kernel (`hakios-kernel`), updated `out/kernel.begonia-native-ufs`, rebuilt support volume, and packaged `out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img` (49,768,448 bytes, SHA256 `05628179cae0b9e40dfdf1edc9993ff3fac78baff720e52c7ffcf3ca6367d334`).
-6. Flashed to `boot` partition over fastboot (`fastboot -s oj5xugvg8h45cicy flash boot out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img`). Ready for reboot.
+6. Flashed to `boot` partition over fastboot (`fastboot -s YOUR_DEVICE flash boot out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img`). Ready for reboot.
 
 
 ### Retaining keep_console and basic framebuffer (v17) — 2026-11-05T23:34:00+01:00
@@ -511,3 +511,20 @@ Built v17 payload and image:
 - Kept `lsd` console logging silenced.
 - Kept Novatek NT36672A touchscreen bring-up fixes in kernel.
 - Packaged `out/begonia-chain-xnu-forced/ios16-native-persistent-long-v17.img` (49,768,448 bytes, SHA256 `3ef21eef66b70dff3a86d5d40f7596fbfcc7698f928c3c3651e4fa2a02f78f69`). Ready for fastboot flash.
+
+
+### Review of v15–v17 after owner reported only Wi-Fi/memory output
+
+Reviewed commits 8ca06e3, e6dbfbb, 2d39fa9 and the additional untracked upstream init changes. These builds disabled lsd activity logging, so absence of app names in the console does not establish loss of registration progress. Prior claims that retaining the text console necessarily blocked the GUI conflict with the photographed v10/v14-style console-overlay home-screen evidence; treat that explanation as unproven. No retained capture was available from v17 after manual FASTBOOT entry (reader rejected the header).
+
+Confirmed original postmarketOS backup and host system.apfs hashes unchanged; GUI milestone image v10 is retained. Recovered PMOS with the original kernel/ramdisk plus only the upper-log memory reservation. Read-only HFS inspection found six boot-marker lines, populated mobile caches, a 3555328-byte LaunchServices store, a 3915776-byte SystemDataOnly store and a 20480-byte LaunchServices SettingsStore SQL file. This supports improvement after the mount-default fix and disproves a wholesale wipe; it does not establish healthy GUI startup.
+
+The upstream init modifications also deleted all contents of /private/var/containers/Shared/SystemGroup on every boot and ignored chmod/chown failures. Preserved that source privately under out/review-v17/init.c, then restored the pinned init baseline with only uid/gid/mask VNOVAL defaults. Captured the fix as userland/patches/0001-hfs-native-permission-defaults.patch and added tools/prepare_userland.py so support images build from a recorded source patch. Restored lsd activity logging and original daemon selection. Blanket code-signing boot arguments are now an explicit --disable-cs diagnostic option rather than an unconditional default. Touch changes are preserved but opt-in; the review test leaves touch disabled to isolate GUI startup.
+
+Built and installed v18, a 300-second capture test: 49768448 bytes, SHA256 adadf032275642ce7f694f5f895c63e0634e4eab151f95c51b55dd79f4f3f3cd, request ID 0x5033318f. Verified recovery-image hash before writing and the new prefix after writing. It preserves the data image, keeps visible console, samples ps at approximately 60/180/240 seconds after the demo job, and restores PMOS automatically on capture. Owner reports abundant console activity again. Awaiting capture before attributing the GUI stall.
+
+
+v18 result: owner confirmed SpringBoard home screen appeared before the five-minute deadline. Capture was retrieved after automatic PMOS recovery; both checksums valid, request ID matched 0x5033318f, 1310719 loader bytes retained. The log contains ongoing SpringBoard activity and IOSurface creation. This re-establishes native GUI with persistent data under the corrected support init; touch was disabled. Prepared v19 as an isolated touch test: identical bytes after the payload command-line header (kernel, device tree and support volume), with only touch enabled, a new epoch and the requested two-hour deadline. Driver functionality remains unverified until physical taps/swipes and logs agree.
+
+
+Physical-test refinement: v19 was prepared but not installed. Built v20 with the same kernel, ADT and corrected init, plus --physical-touch support that removes scripted rwtouch swipes. This prevents synthetic gestures being mistaken for real driver success. v20 keeps verbose output and persistent data, enables the preserved v16 touch code, and has a 7200-second deadline. Installed/readback verified: 49766400 bytes, SHA256 3beab8f40efade043bdc448b79ae7f72515b9b35921dcbfd02e631907f1f0df1. Existing v18 prefix verified first. Reboot will be the final action; touch result awaits owner observation.

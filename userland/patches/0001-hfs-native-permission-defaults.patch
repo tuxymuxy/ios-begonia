@@ -1,0 +1,13 @@
+--- a/userland/src/init.c
++++ b/userland/src/init.c
+@@ -852,6 +852,10 @@
+ 	strcpy(dev + 5, name);
+ 	memset(&args, 0, sizeof(args));
+ 	args.fspec = dev;
++	/* Preserve native HFS+ ownership/mode defaults (VNOVAL). */
++	args.uid = (uint32_t)-1;
++	args.gid = (uint32_t)-1;
++	args.mask = (uint16_t)-1;
+ 	if (mount("hfs", "/private/var", 0, &args) != 0) {
+ 		printf("  HFS Plus from %s: %s; a memory filesystem instead, empty at every boot\n", dev, strerror(errno));
+ 		return 0;

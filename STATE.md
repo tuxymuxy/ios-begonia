@@ -1,3 +1,52 @@
+# Current handoff — verified GUI restored; physical touch test next
+
+Latest successful native test: **v18**, persistent HFS+ data enabled, touch
+explicitly disabled. Owner confirmed SpringBoard home screen. Automatic capture
+and PMOS recovery succeeded; checksums valid, request 0x5033318f. Native log
+contains `hakios: unlock: asked, answer 1` and SpringBoard surface creation.
+
+Reviewed another agent's v15–v17 changes. Kept the HFS uid/gid/mask VNOVAL fix,
+removed automatic deletion of all SystemGroup contents and restored directory
+permission-error checking. The mount fix is now recorded in
+userland/patches/0001-hfs-native-permission-defaults.patch, applied/built by
+tools/prepare_userland.py. make_ui_support.py invokes that builder. Restored
+lsd console logging; blanket AMFI/code-signing arguments are now opt-in.
+Touch changes from v16 are preserved but were NOT exercised by successful v18.
+
+Current phone: PMOS after v18 automatic recovery. **v20 physical-touch test is
+installed and readback verified; reboot is the final action of this review.**
+It enables the experimental touch driver, keeps persistent data and verbose
+console, removes scripted rwtouch swipes (`--physical-touch`), and uses the
+user-requested 7200-second limit. Physical touch success remains UNKNOWN until
+owner taps/swipes/releases and retained driver events agree.
+
+v20 image: out/begonia-chain-xnu-forced/ios16-physical-touch-v20.img
+size 49766400; SHA256
+3beab8f40efade043bdc448b79ae7f72515b9b35921dcbfd02e631907f1f0df1.
+v18 GUI baseline: out/begonia-chain-xnu-forced/ios16-preserve-diagnostics-v18.img
+size 49768448; SHA256
+adadf032275642ce7f694f5f895c63e0634e4eab151f95c51b55dd79f4f3f3cd.
+v19 was only prepared and never installed; v20 removes synthetic gestures for
+an unambiguous physical test.
+
+Data survived: six boot markers, populated mobile caches and LaunchServices
+stores (3555328 and 3915776 bytes) plus SettingsStore SQL (20480 bytes) found
+read-only after v17. Original host system.apfs and boot backup hashes unchanged.
+No wholesale wipe occurred. Do not repeat the SystemGroup deletion workaround.
+
+The repeating memory line reports MEGABYTES: `programs 13` is 13 MB of program
+memory, not a process/failure count. Sparse Wi-Fi/memory console output is not
+by itself evidence that SpringBoard stopped. Keep logs visible for diagnosis.
+
+Next: let owner observe v20 and test opening Settings and scrolling, then lifting
+all fingers. If physical input fails or GUI regresses, recover PMOS and inspect
+BEGONIA TOUCH firmware status and real driver events. Preserve v18 as baseline.
+Do not claim GPU acceleration; no native GPU port has been implemented.
+
+---
+
+# Historical handoff (before v15–v20 review)
+
 # Begonia iOS port — current state
 
 Updated 2026-11-05 (Europe/Budapest). This file is the handoff; chronological
