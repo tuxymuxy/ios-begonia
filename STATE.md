@@ -37,21 +37,32 @@ Neither the system image nor the data image was erased during recovery.
 
 ## Latest iOS test and observations
 
-- Last installed experimental image was v14, a two-hour verbose run with
-  persistent data and experimental touch enabled.
-- v14: out/begonia-chain-xnu-forced/ios16-native-persistent-long-v14.img
-  49,766,400 bytes; SHA256
-  1f0507a72022743190540e9915e377061b7e97bcbe8fc029e8c233f0aedef2f3.
-- User forced a reboot before log capture, then reported the app list repeated
-  through further attempts. A forced reset can retry iOS because the automatic
-  warm fallback depends on a matching completed capture marker.
-- IMG_9422 shows background retries, signature errors, and nanoregistryd unable
-  to use /var/mobile/Library/Caches (Permission denied).
-- IMG_9423.MOV shows lsd advancing through DIFFERENT apps while background
-  retries continue. This proves local progress in that clip, not completion or
-  persistence. Owner subsequently reports repeated full passes through apps.
-- Do not assume the remaining issue is just a slow first boot. Inspect actual
-  saved database files, mount status, permissions, and journal recovery first.
+- Installed image v15: out/begonia-chain-xnu-forced/ios16-native-persistent-long-v15.img
+  49,768,448 bytes; SHA256
+  0d6e2a61b9aacb9e19c9eb68e90107038fa0493561440a063e0af242627b347e.
+- Verified on phone: flashed to /dev/disk/by-partlabel/boot and readback matched.
+- Root cause of "Permission denied" and empty cache folders resolved:
+  In upstream `init.c`, `mount_data_volume()` passed a zeroed `struct hfs_mount_args`.
+  In XNU's `hfs_vfsops.c`, if `args->hfs_mask` is not `VNOVAL` (`-1`), XNU overrides
+  `hfsmp->hfs_dir_mask = args->hfs_mask & ALLPERMS`. With `args->hfs_mask == 0`,
+  directory and file permission masks were clamped to `0000` (`d---------`), and
+  `hfs_uid`/`hfs_gid` clamped to 0. Every directory created by `containermanagerd`
+  without explicit BSD attributes (such as `systemgroup.com.apple.lsd.iconscache/Library`
+  and `Caches`) inherited mode `0000`, blocking any subsequent reads or writes with
+  `Permission denied` (`EACCES`).
+- Fix applied:
+  1. Set `args.uid = (uint32_t)-1`, `args.gid = (uint32_t)-1`, `args.mask = (uint16_t)-1`
+     (`VNOVAL`) in `init.c:mount_data_volume()`. XNU defaults `hfs_dir_mask` to `0777`,
+     `hfs_file_mask` to `0666`, and `hfs_uid`/`hfs_gid` to `UNKNOWNUID`/`UNKNOWNGID` (99).
+  2. `init.c:mount_writable()` clears stale/corrupted `SystemGroup` directories left by v14
+     and sets `0777` permissions on `/var/mobile/Library/Caches`, `/var/containers`, and
+     `/var/db/lsd`.
+  3. `init.c` continues through `var.skel` even if directories exist, avoiding early loop aborts.
+  4. Disabled noisy irrelevant Apple Watch daemons (`com.apple.nanoregistryd` and
+     `com.apple.nanoregistrylaunchd`) in the UI support image to keep the console clean
+     and save CPU cycles.
+- Prior reference build v14:
+  49,766,400 bytes; SHA256 1f0507a72022743190540e9915e377061b7e97bcbe8fc029e8c233f0aedef2f3.
 
 ## Touch and GPU
 

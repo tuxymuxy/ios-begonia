@@ -9,6 +9,12 @@ for label in ['com.apple.SpringBoard','com.apple.lsd']:
     p=dest/'LaunchDaemons'/(label+'.plist');job=plistlib.loads(p.read_bytes())
     job.setdefault('EnvironmentVariables',{})['OS_ACTIVITY_DT_MODE']='YES'
     p.write_bytes(plistlib.dumps(job,fmt=plistlib.FMT_BINARY))
+for label in ['com.apple.nanoregistryd','com.apple.nanoregistrylaunchd']:
+    p=dest/'LaunchDaemons'/(label+'.plist')
+    if p.exists():
+        job=plistlib.loads(p.read_bytes())
+        job['Disabled']=True
+        p.write_bytes(plistlib.dumps(job,fmt=plistlib.FMT_BINARY))
 p=dest/'LaunchDaemons/com.apple.backboardd.plist';job=plistlib.loads(p.read_bytes())
 job.get('EnvironmentVariables',{}).pop('OS_ACTIVITY_DT_MODE',None)
 p.write_bytes(plistlib.dumps(job,fmt=plistlib.FMT_BINARY))
