@@ -457,3 +457,18 @@ Touch v12 got as far as section-0 SRAM readback but differed in at least one byt
 The user requested a long run so migrations can finish on persistent storage. Prepared the next image with a 7200-second supervisor limit, touch enabled, writable data enabled and visible verbose output. The job reads the existing marker before appending a new line. Source updates will be pushed before reboot, then work stops while the user observes startup.
 
 Installed and verified long-run v14: 49766400 bytes, SHA256 `1f0507a72022743190540e9915e377061b7e97bcbe8fc029e8c233f0aedef2f3`. Existing v12 prefix checked before installation; new image readback matched. Original postmarketOS backup and GUI-booting v10 retained locally. Reboot into the two-hour persistent run is the final action; outcome awaits owner observation.
+
+
+### Long-run photograph IMG_9422
+
+Owner reports continued visible activity about an hour into v14. Photo shows launchd repeatedly restarting analyticsd, nanoregistryd and the daemon named `blonded` in the visible text. nanoregistryd reports it cannot set its working directory to `/var/mobile/Library/Caches`: `Permission denied`, followed by initialization failure and a throttled respawn. App-registration messages also show signature validation errors for ShortcutsViewService and GameCenterUIService. This is evidence of service retry loops, not proof of continuing migration progress. The photo does not show a kernel panic or establish the main SpringBoard blocker. Inspect data-volume directory ownership/modes and relevant access checks after recovery; do not infer that writable storage alone fixed app initialization. Phone left running for the configured capture deadline.
+
+
+### Video clarifies concurrent app-registration progress
+
+Owner supplied IMG_9423.MOV (18.94 seconds). Comparing early and late frames shows lsd processing different app bundles, including ScreenshotServicesService and later SIMSetupUIService, while analyticsd/nanoregistryd/blonded retry messages continue in parallel. Correction to the photograph-only interpretation: background retry loops are present, but they do not establish that app registration is stuck; the video supports ongoing progression through the app list. Completion/success of registration is still unverified. Native run left undisturbed.
+
+
+### Forced-reboot persistence inspection and handoff
+
+Owner reported repeated app passes after a forced reboot. Restored the SHA-verified original postmarketOS boot through explicit-target FASTBOOT, then inspected the existing HFS+ data file using `hfsfuse --force -o ro` and unmounted it. Three boot-marker entries survive (87 bytes). Inventory found 787 regular files and 5093 directories, including app-container metadata and mobile migration/SpringBoard preference files. Writes demonstrably survive beyond the single original test marker. However mobile/Library/Caches and db/lsd are empty in this read-only view. Caches is UID/GID 501, mode0700; mobile and mobile/Library are 501:501 mode0711, matching the template. Native Permission denied remains unexplained; do not assume blanket chmod is appropriate. The journal is dirty and was not replayed by the inspector, so absence in this view is not conclusive evidence about pending journal records. No formatting, repair, or data modifications were performed. Created root STATE.md as the current handoff. Phone left in postmarketOS for subsequent diagnosis.
