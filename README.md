@@ -1,47 +1,44 @@
-# iOS 16 bring-up for Redmi Note 8 Pro (begonia)
+# iOS on Redmi Note 8 Pro (begonia)
 
-**This is an experimental bring-up workspace, not a working iOS ROM.** XNU and a source-only hello program have run on the actual Redmi. Native UFS reads and inherited verbose display output are verified separately. A verified native log now shows iOS launchd, SpringBoard and backboardd running; the graphical interface is still unverified. iOS userland reaches a visibly corrupted home screen in QEMU.
+Experimental iOS 16 / XNU port for Xiaomi Redmi Note 8 Pro, MediaTek MT6785.
+**The physical phone has reached the SpringBoard home screen**, confirmed by
+owner photographs on 2026-11-05. This repository contains the port source,
+build tools and process notes; it is not a ready-to-flash ROM.
 
-Mu-Silicium now builds for begonia: the physical phone shows its menu, volume navigation works, and its countdown runs. Its shared OS handoff hangs. The user deferred Mu while direct native iOS debugging continues. See [Mu source and status](firmware/mu/README.md).
+Current status:
 
-The intended target is iOS 16's plain arm64 iPhone userland on open-source XNU, following ios-sweet and HakiOS. Begonia's MediaTek MT6785 needs a separate platform layer. Renaming a Snapdragon configuration will not work.
+- Native XNU, UFS-backed read-only iOS system image, launchd, backboardd and
+  SpringBoard run on the phone. Software-rendered frames reach the real panel.
+- First boot required a long attempt; the earlier 4/15-minute limits were too short.
+- Novatek NT36672A touch: experimental SPI5 driver and private firmware upload;
+  hardware initialization is under active testing. Physical touch is not verified.
+- Persistent data: a separate 16 GiB HFS+ image is prepared; the isolated write
+  path mounted successfully, and an iOS-written marker survived reboot.
+- GPU: Linux G76 feature masks captured; native hardware acceleration is not ported.
+- Mu-Silicium menu and volume navigation worked, but OS handoff stalled; deferred.
 
-## Available now
+See [process log](docs/PROCESS.md), [storage](docs/STORAGE.md),
+[GPU work](docs/GPU.md), and [porting notes](docs/PORTING.md).
+Pinned references are in [sources.lock.json](docs/sources.lock.json).
 
-- A minimal ARM64 entry probe that records CPU features, entry EL, DTB pointer and counter frequency in RAM. The default build performs no peripheral MMIO and no storage writes. It halts after the report; there is no Android chainload or automatic reboot.
-- QEMU loader/supervisor tests, a visible iOS emulator, and separate hardware diagnostic images. Emulation does not establish phone compatibility.
-- Source-derived board facts with explicit unknowns, pinned upstream revisions, read-only device collection, and a staged integration plan.
+Source layout: `boot/` holds the LK-to-XNU diagnostic loader, `kernel/` the
+Begonia drivers, `patches/` the XNU additions, `tools/` host and Linux utilities,
+and `firmware/mu/` the deferred menu experiment. `tools/prepare_kernel.py` applies
+the additions to the prepared, pinned HakiOS tree. External checkouts under
+`upstream/`, build outputs under `out/`, and private device/Apple files under
+`private/` are intentionally excluded from Git. Read the process log before
+attempting a device build; storage mappings are specific to the owner's device.
 
-## Reproduce the offline diagnostic
-
-Requires macOS ARM64 clang, Python 3, Zig 0.13 and QEMU with ARM64 support. The workspace-local linker can be installed with:
-
-```sh
-python3 -m pip install --target .tools/python ziglang==0.13.0
-python3 tools/build_probe.py
-python3 tools/test_probe.py
-```
-
-Outputs: `out/begonia/Image`, `out/begonia/probe.elf`, manifests, and `out/qemu/serial.log`. **Never load `out/qemu/Image` on the phone:** it writes QEMU's PL011 address. The default image halts without a visible phone console. An optional chainloader variant now logs to the captured ramoops console and starts the original postmarketOS kernel; see the process log. The temporary boot image has passed local layout checks and an emulated handoff test, and has executed on the phone using a backed-up boot-partition test. The original boot partition was restored and its full checksum verified. No flashing command is supplied.
-
-## Connected phone (2026-11-05)
-
-SSH and sudo access on postmarketOS now work. The live device tree and boot, DTBO and vbmeta backups are captured in ignored `private/`. Live evidence corrects the initial eMMC assumption: this phone has UFS. Boot tests use a verified original backup. A regular iOS filesystem image is staged on userdata; no formatting or repartitioning was performed. The current direct native diagnostic retries until the original boot is restored. See the process log for the latest installation and recovery state.
-
-## Android collection alternative
-
-Enable USB debugging and authorize this computer, then run the collector using the exact serial displayed by `adb devices`:
-
-```sh
-python3 tools/collect_device.py --serial YOUR_DEVICE
-```
-
-If Android already has working root, `--root` additionally reads the live DTB and current boot partition. It does not root or unlock the phone. Captures stay in ignored `private/`. Keep backups outside this workspace too. Do not share captures publicly: they can contain identifiers.
+Host checks:
 
 ```sh
-python3 tools/inspect_dtb.py private/device/live.dtb
+cc -std=c11 -Wall -Wextra -Werror tests/touch_report.c -o /tmp/test-touch
+/tmp/test-touch
+cc -std=c11 -Wall -Wextra -Werror tests/extent_policy.c -o /tmp/test-extents
+/tmp/test-extents
 ```
 
-See [process log](docs/PROCESS.md), [integration plan](docs/PORTING.md), [hardware facts](devices/begonia/board.json), and [source revisions](docs/sources.lock.json). Upstream directories are independent checkouts; some are sparse and do not contain all build inputs.
-
-Native GUI milestone: user photographs from the v10 two-hour test confirm the SpringBoard home screen on the physical phone. Physical touch and hardware GPU acceleration are not yet working.
+Original postmarketOS boot and partition backups are retained locally. Native
+tests use verified boot-image installation and a separate recovery supervisor.
+No Apple firmware, private touch firmware, boot images, photos or device dumps
+are redistributed. See [NOTICE](NOTICE) for licensing and attribution.

@@ -38,5 +38,10 @@
     "url": "https://github.com/aTechGeekDev/ios-apollo.git",
     "branch": "main",
     "commit": "1f75f381e31da96de537653fbac2252d2eb80418"
+  },
+  "linux-mt6785-reference": {
+    "url": "https://github.com/external-mirrors/mt6785-mainline-linux.git",
+    "branch": "6.16",
+    "commit": "203a993f86cdd71d2936ee0f301f733f5a15afcd"
   }
 }

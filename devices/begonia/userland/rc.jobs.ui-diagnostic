@@ -1,3 +1,6 @@
+/redwood/bin/vol_ls fs /private/var
+/redwood/bin/vol_ls cat /private/var/begonia-persistence-test 4096
+/redwood/bin/var_store stamp /private/var/begonia-persistence-test
 # Source-only diagnostics, then one synthetic swipe while physical touch is unported.
 /redwood/bin/hello_dyn started by launchd
 /redwood/bin/svc_test

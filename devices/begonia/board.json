@@ -38,7 +38,7 @@
     "irq_gpio": 1,
     "reset_gpio": 2,
     "tddi_reset_gpio": 44,
-    "driver_status": "not ported; Infinix TD4160 driver incompatible"
+    "driver_status": "experimental native SPI5 firmware upload and report decoder; physical input not yet verified"
   },
   "cpu_source_mpidrs": [
     "0x0000",
@@ -155,5 +155,17 @@
     "backboardd_startup_complete_verified": true,
     "bgra_frame_submissions_verified": true,
     "first_frame_console_release_verified": true
+  },
+  "native_gui": {
+    "verified": "owner photographs IMG_9416/IMG_9417, 2026-11-05",
+    "build": "v10 two-hour verbose test",
+    "hardware_gpu": false,
+    "physical_touch_verified": false
+  },
+  "gpu_linux_parameters": {
+    "product_id": "0x7211",
+    "shader_present": "0xf",
+    "job_slots": "0x7",
+    "address_spaces": "0xff"
   }
 }

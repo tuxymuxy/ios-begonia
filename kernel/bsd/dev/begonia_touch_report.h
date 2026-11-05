@@ -17,14 +17,13 @@ begonia_touch_decode(struct begonia_touch_state *state, const uint8_t *p,
     size_t size, uint16_t xmax, uint16_t ymax, begonia_touch_emit emit, void *ctx)
 {
     struct begonia_touch_state next = {0};
-    unsigned i, seen = 0, all_ff = 1, recover = 1, watchdog = 1;
+    unsigned i, seen = 0, recover = 1, watchdog = 1;
     if (size != 65 || !xmax || !ymax) return -1;
-    for (i = 0; i < 65; i++) if (p[i] != 0xff) all_ff = 0;
     for (i = 0; i < 6; i++) {
         if (p[i] != 0x77) recover = 0;
         if (p[i] != 0xfd && p[i] != 0xfe) watchdog = 0;
     }
-    if (all_ff || recover || watchdog) return -1;
+    if (recover || watchdog) return -1;
     for (i = 0; i < BEGONIA_TOUCH_SLOTS; i++) {
         const uint8_t *r = p + 6*i;
         unsigned id = r[0] >> 3, status = r[0] & 7;

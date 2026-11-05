@@ -18,7 +18,7 @@ for name in ['0008-framebuffer-release-text-console.patch']:
     if subprocess.run([*cmd,'--reverse','--check',str(patch)],capture_output=True).returncode!=0:
         subprocess.run([*cmd,'--check',str(patch)],check=True)
         subprocess.run([*cmd,str(patch)],check=True)
-for name in ['begonia_ufs.c','begonia_touch.c','begonia_touch_report.h']:
+for name in ['begonia_ufs.c','begonia_touch.c','begonia_touch_report.h','begonia_extent_policy.h']:
     shutil.copyfile(root/'kernel/bsd/dev'/name,tree/'bsd/dev'/name)
 shutil.copyfile(root/'devices/begonia/configs/begonia_defconfig',repo/'configs/begonia_defconfig')
 print('Begonia root driver and build profile copied. Build with make begonia_defconfig, then make kernel.')

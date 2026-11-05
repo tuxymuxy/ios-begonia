@@ -19,3 +19,8 @@ boot/ufs_probe.c adapts ios-sweet's MIT shim UFS transport; license retained in
 licenses/ios-sweet-MIT.txt. kernel/bsd/dev/begonia_ufs.c adapts its XNU-derived
 root block driver and is APSL 2.0; see licenses/XNU-APSL.txt. The root-hook and
 bounded-test patches are also XNU derivatives under APSL 2.0.
+
+The Begonia touch implementation independently describes the hardware protocol
+using Xiaomi and the Linux Novatek driver as references; their source and
+firmware are not redistributed here. The touch firmware is copied privately
+from the owner's existing postmarketOS installation.

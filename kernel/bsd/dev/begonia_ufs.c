@@ -82,7 +82,11 @@ static struct {
 	bool ready;
 } su;
 
-struct begonia_extent { uint64_t logical, physical, count; };
+#include "begonia_extent_policy.h"
+static struct begonia_extent data_extents[4096];
+static uint32_t data_extent_count, data_secsize=DEV_BSIZE;
+static uint64_t data_blocks;
+static bool data_writable;
 static struct begonia_extent root_extents[4096];
 static uint32_t root_extent_count;
 static int
@@ -102,6 +106,28 @@ load_file_map(DTEntry node)
     }
     if(next!=h[1]/4096)return EINVAL;
     root_extent_count=count;su.first_block=0;su.nblocks=next;return 0;
+}
+
+/* Optional second disk is restricted to a fully allocated, separately mapped
+ * file. Overlap with the read-only system file, including aliased data
+ * extents, is rejected before allowing any write commands. */
+static int load_data_map(void) {
+ DTEntry node;const uint8_t *blob;unsigned bytes=0;uint32_t on=0,count;uint64_t h[4],next=0;
+ if(!PE_parse_boot_argn("begonia_data",&on,sizeof(on)) || on!=1)return 0;
+ if(SecureDTLookupEntry(NULL,"/begonia-data",&node)!=kSuccess ||
+    SecureDTGetProperty(node,"file-extents",(const void **)&blob,&bytes)!=kSuccess || bytes<40)return EINVAL;
+ memcpy(h,blob,32);memcpy(&count,blob+32,4);
+ if(h[0]!=0x4245474558543031ULL || h[1]!=(16ULL<<30) || !count || count>4096 || bytes!=40+count*24 || h[2]>=h[3] || h[3]>0xee5800)return EINVAL;
+ memcpy(data_extents,blob+40,count*24);
+ for(uint32_t i=0;i<count;i++) {
+  struct begonia_extent *e=&data_extents[i];
+  if(e->logical!=next || !e->count || e->physical<h[2] || e->physical>=h[3] || e->count>h[3]-e->physical || e->count>h[1]/4096-next)return EINVAL;
+  if(!begonia_extents_disjoint(e,1,data_extents,i))return EINVAL;
+  next+=e->count;
+ }
+ if(next!=h[1]/4096 || !begonia_extents_disjoint(root_extents,root_extent_count,data_extents,count))return EINVAL;
+ data_extent_count=count;data_blocks=next;data_writable=true;
+ return 0;
 }
 
 static LCK_GRP_DECLARE(begonia_ufs_grp, "begonia_ufs");
@@ -130,19 +156,25 @@ dma_sync(uint32_t off, uint32_t len)
  * Read direction only. Returns 0 or an errno.
  */
 static int
-ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len)
+ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len, bool write)
 {
 	struct utrd *utrd = (struct utrd *)(su.dma + DMA_UTRL);
 	struct ucd *ucd = (struct ucd *)(su.dma + DMA_UCD);
 	uint64_t ucd_pa = su.dma_pa + DMA_UCD, bounce_pa = su.dma_pa + DMA_BOUNCE;
 
-	if (len>BOUNCE_SIZE || su.lun!=2 || (cdb[0]!=0 && cdb[0]!=0x28)) return EPERM;
+	if (len>BOUNCE_SIZE || su.lun!=2) return EPERM;
+    if(write) {
+        if(cdb_len!=10 || cdb[0]!=0x2a || !data_writable)return EPERM;
+        uint64_t lba=((uint64_t)cdb[2]<<24)|((uint64_t)cdb[3]<<16)|((uint64_t)cdb[4]<<8)|cdb[5];
+        uint32_t blocks=((uint32_t)cdb[7]<<8)|cdb[8];
+        if(len!=(uint64_t)blocks*UFS_BLOCK || !begonia_extent_contains(data_extents,data_extent_count,lba,blocks))return EPERM;
+    } else if(cdb[0]!=0 && cdb[0]!=0x28 && !(cdb[0]==0x35 && data_writable && !len))return EPERM;
     if (ufs_rd(REG_UTRLBA)!=(uint32_t)su.dma_pa || ufs_rd(REG_UTRLBAU)!=(uint32_t)(su.dma_pa>>32) || !(ufs_rd(REG_UTRLRSR)&1)) return EIO;
 	bzero(utrd, sizeof(*utrd));
 	bzero(ucd, sizeof(*ucd));
 
 	ucd->cmd[0] = 0x01;                     /* COMMAND UPIU */
-	ucd->cmd[1] = len ? 0x40 : 0x00;        /* R: data in */
+	ucd->cmd[1] = len ? (write ? 0x20 : 0x40) : 0x00;        /* R: data in */
 	ucd->cmd[2] = su.lun;
 	ucd->cmd[3] = ++su.tag;
 	ucd->cmd[12] = (uint8_t)(len >> 24);
@@ -151,7 +183,7 @@ ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len)
 	ucd->cmd[15] = (uint8_t)len;
 	memcpy(&ucd->cmd[16], cdb, cdb_len);
 
-	utrd->dw0 = (1u << 28) | ((len ? 2u : 0u) << 25) | (1u << 24);
+	utrd->dw0 = (1u << 28) | ((len ? (write ? 1u : 2u) : 0u) << 25) | (1u << 24);
 	utrd->dw2 = 0x0f;                       /* OCS invalid until updated */
 	utrd->ucdba = (uint32_t)ucd_pa;
 	utrd->ucdbau = (uint32_t)(ucd_pa >> 32);
@@ -216,7 +248,16 @@ ufs_read_blocks(uint64_t lba, uint32_t count)
 		(uint8_t)(lba >> 24), (uint8_t)(lba >> 16), (uint8_t)(lba >> 8), (uint8_t)lba,
 		0, (uint8_t)(count >> 8), (uint8_t)count, 0
 	};
-	return ufs_scsi(cdb, sizeof(cdb), count * UFS_BLOCK);
+	return ufs_scsi(cdb, sizeof(cdb), count * UFS_BLOCK, false);
+}
+
+static int ufs_write_blocks(uint64_t lba,uint32_t blocks) {
+ if(lba>UINT32_MAX || !blocks || blocks>BOUNCE_SIZE/UFS_BLOCK)return EINVAL;
+ uint8_t cdb[10]={0x2a,8,lba>>24,lba>>16,lba>>8,lba,0,blocks>>8,blocks,0}; /* FUA */
+ return ufs_scsi(cdb,sizeof(cdb),blocks*UFS_BLOCK,true);
+}
+static int ufs_flush(void) {
+ uint8_t cdb[10]={0x35};return ufs_scsi(cdb,sizeof(cdb),0,false);
 }
 
 static int
@@ -253,7 +294,8 @@ begonia_ufs_open(__unused dev_t dev, int flags, __unused int devtype, __unused s
 	if (!su.ready) {
 		return ENXIO;
 	}
-	return (flags & FWRITE) ? EROFS : 0;
+	if(minor(dev)>1 || (minor(dev)==1 && !data_writable))return ENXIO;
+	return (flags & FWRITE) && minor(dev)!=1 ? EROFS : 0;
 }
 
 static int
@@ -267,12 +309,16 @@ begonia_ufs_strategy(buf_t bp)
 {
 	int error = 0;
 	caddr_t vaddr = NULL;
-	uint64_t off = (uint64_t)buf_blkno(bp) * su.secsize;
+	bool is_data=minor(buf_device(bp))==1, writing=!(buf_flags(bp)&B_READ);
+    uint32_t secsize=is_data?data_secsize:su.secsize;
+    struct begonia_extent *map=is_data?data_extents:root_extents;
+    uint32_t map_count=is_data?data_extent_count:root_extent_count;
+    uint64_t off = (uint64_t)buf_blkno(bp) * secsize;
 	uint32_t count = buf_count(bp);
-	uint64_t part_bytes = su.nblocks * UFS_BLOCK;
+	uint64_t part_bytes = (is_data?data_blocks:su.nblocks) * UFS_BLOCK;
 
 	buf_setresid(bp, count);
-	if (!(buf_flags(bp) & B_READ)) {
+	if ((is_data && !data_writable) || (writing && !is_data)) {
 		error = EROFS;
 		goto done;
 	}
@@ -295,16 +341,21 @@ begonia_ufs_strategy(buf_t bp)
 		uint32_t skip = (uint32_t)(pos % UFS_BLOCK);
 		uint32_t want = MIN(count - done, BOUNCE_SIZE - skip);
         struct begonia_extent *extent=NULL;
-        for(uint32_t j=0;j<root_extent_count;j++)if(lba>=root_extents[j].logical && lba-root_extents[j].logical<root_extents[j].count){extent=&root_extents[j];break;}
+        for(uint32_t j=0;j<map_count;j++)if(lba>=map[j].logical && lba-map[j].logical<map[j].count){extent=&map[j];break;}
         if(extent==NULL){error=EIO;break;}
         uint64_t available=(extent->count-(lba-extent->logical))*UFS_BLOCK-skip;
         if(want>available)want=(uint32_t)available;
         uint32_t blocks=(skip+want+UFS_BLOCK-1)/UFS_BLOCK;
-        error=ufs_read_blocks(extent->physical+lba-extent->logical,blocks);
+        uint64_t physical=extent->physical+lba-extent->logical;
+        if(!writing || skip || want%UFS_BLOCK)error=ufs_read_blocks(physical,blocks);
+        if(!error && writing) {
+            memcpy((void *)(su.dma+DMA_BOUNCE+skip),vaddr+done,want);
+            error=ufs_write_blocks(physical,blocks);
+        }
 		if (error) {
 			break;
 		}
-		memcpy(vaddr + done, (const void *)(su.dma + DMA_BOUNCE + skip), want);
+		if(!writing)memcpy(vaddr + done, (const void *)(su.dma + DMA_BOUNCE + skip), want);
 		done += want;
 		buf_setresid(bp, count - done);
 	}
@@ -324,10 +375,16 @@ begonia_ufs_ioctl(__unused dev_t dev, u_long cmd, caddr_t data, __unused int fla
 {
 	uint32_t *f = (uint32_t *)data;
 	uint64_t *o = (uint64_t *)data;
+    bool is_data=minor(dev)==1;
+    uint32_t *sec=is_data?&data_secsize:&su.secsize;
 
 	switch (cmd) {
+    case DKIOCSYNCHRONIZECACHE: {
+        if(!is_data || !data_writable)return 0;
+        lck_mtx_lock(&begonia_ufs_lock);int error=ufs_flush();lck_mtx_unlock(&begonia_ufs_lock);return error;
+    }
 	case DKIOCGETBLOCKSIZE:
-		*f = su.secsize;
+		*f = *sec;
 		return 0;
 	case DKIOCSETBLOCKSIZE:
 		if (is_char) {
@@ -336,22 +393,22 @@ begonia_ufs_ioctl(__unused dev_t dev, u_long cmd, caddr_t data, __unused int fla
 		if (*f < DEV_BSIZE || *f > UFS_BLOCK || (*f & (*f - 1))) {
 			return EINVAL;
 		}
-		su.secsize = *f;
+		*sec = *f;
 		return 0;
 	case DKIOCGETPHYSICALBLOCKSIZE:
 		*f = UFS_BLOCK;
 		return 0;
 	case DKIOCGETBLOCKCOUNT:
-		*o = su.nblocks * UFS_BLOCK / su.secsize;
+		*o = (is_data?data_blocks:su.nblocks) * UFS_BLOCK / *sec;
 		return 0;
 	case DKIOCISWRITABLE:
-		*f = 0;
+		*f = is_data && data_writable;
 		return 0;
 	case DKIOCGETMAXBLOCKCOUNTREAD:
-		*o = BOUNCE_SIZE / su.secsize;
+		*o = BOUNCE_SIZE / *sec;
 		return 0;
 	case DKIOCGETMAXBLOCKCOUNTWRITE:
-		*o = 0;
+		*o = is_data && data_writable ? BOUNCE_SIZE / *sec : 0;
 		return 0;
 	case DKIOCGETMAXSEGMENTCOUNTREAD:
 	case DKIOCGETMAXSEGMENTCOUNTWRITE:
@@ -377,19 +434,20 @@ begonia_ufs_cioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p
 static int
 begonia_ufs_psize(__unused dev_t dev)
 {
-	return su.ready ? (int)MIN(su.nblocks * UFS_BLOCK / su.secsize, INT_MAX) : -1;
+	return su.ready ? (int)MIN((minor(dev)==1?data_blocks:su.nblocks) * UFS_BLOCK / (minor(dev)==1?data_secsize:su.secsize), INT_MAX) : -1;
 }
 
 static int
 begonia_ufs_read(dev_t dev, struct uio *uio, __unused int ioflag)
 {
-	return physio(begonia_ufs_strategy, NULL, dev, B_READ, minphys, uio, (int)su.secsize);
+	return physio(begonia_ufs_strategy, NULL, dev, B_READ, minphys, uio, (int)(minor(dev)==1?data_secsize:su.secsize));
 }
 
 static int
-begonia_ufs_write(__unused dev_t dev, __unused struct uio *uio, __unused int ioflag)
+begonia_ufs_write(dev_t dev, struct uio *uio, __unused int ioflag)
 {
-	return EROFS;
+ if(minor(dev)!=1 || !data_writable)return EROFS;
+ return physio(begonia_ufs_strategy,NULL,dev,B_WRITE,minphys,uio,(int)data_secsize);
 }
 
 static const struct bdevsw begonia_ufs_bdevsw = {
@@ -436,6 +494,7 @@ begonia_ufs_init(void)
 	}
 	if(reg[0]!=0x11270000 || reg[1]!=0x2300)return EINVAL;
     error=load_file_map(node);if(error)return error;
+    error=load_data_map();if(error)return error;
 
 	su.regs = ml_io_map(reg[0], reg[1]);
 	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,
@@ -456,13 +515,17 @@ begonia_ufs_init(void)
 	if (!error) {
 		static const uint8_t tur[6] = { 0x00 };
 		/* The first command after the bootloader may report a unit attention. */
-		for (int i = 0; i < 3 && (error = ufs_scsi(tur, sizeof(tur), 0)); i++) {
+		for (int i = 0; i < 3 && (error = ufs_scsi(tur, sizeof(tur), 0, false)); i++) {
 		}
 	}
 	if (!error) {
 		error=ufs_read_blocks(root_extents[0].physical,1);
         if(!error && memcmp((const void *)(su.dma+DMA_BOUNCE+32),"NXSB",4)!=0)error=EINVAL;
 	}
+    if(!error && data_writable) {
+        error=ufs_read_blocks(data_extents[0].physical,1);
+        if(!error && memcmp((const void *)(su.dma+DMA_BOUNCE+1024),"H+",2))error=EINVAL;
+    }
 	lck_mtx_unlock(&begonia_ufs_lock);
 	if (error) {
 		return error;
@@ -479,7 +542,12 @@ begonia_ufs_init(void)
 	su.bdev = makedev(su.bmajor, 0);
 	devfs_make_node(su.bdev, DEVFS_BLOCK, UID_ROOT, GID_OPERATOR, 0640, "begonia0");
 	devfs_make_node(makedev(su.cmajor, 0), DEVFS_CHAR, UID_ROOT, GID_OPERATOR, 0640, "rbegonia0");
-	su.ready = true;
+	if(data_writable) {
+        devfs_make_node(makedev(su.bmajor,1),DEVFS_BLOCK,UID_ROOT,GID_OPERATOR,0600,"begonia-data");
+        devfs_make_node(makedev(su.cmajor,1),DEVFS_CHAR,UID_ROOT,GID_OPERATOR,0600,"rbegonia-data");
+        printf("BEGONIA DATA: separate 16 GiB mapped file, writable within %u extents\n",data_extent_count);
+    }
+    su.ready = true;
 	printf("BEGONIA UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, read-only\n",
 	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20);
 	return 0;
@@ -500,4 +568,3 @@ begonia_ufs_rootdev(dev_t *dev)
 	*dev = su.bdev;
 	return 0;
 }
-
