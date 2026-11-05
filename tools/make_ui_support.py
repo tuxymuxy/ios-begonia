@@ -5,7 +5,7 @@ import plistlib,shutil,subprocess,sys
 root=Path(__file__).resolve().parents[1];repo=root/'upstream/hakios-xnu-kernel';out=root/'out/begonia-ui-support';dest=out/'root'
 if dest.exists():shutil.rmtree(dest)
 shutil.copytree(repo/'userland/root',dest,symlinks=True)
-for label in ['com.apple.SpringBoard','com.apple.lsd']:
+for label in ['com.apple.SpringBoard']:
     p=dest/'LaunchDaemons'/(label+'.plist');job=plistlib.loads(p.read_bytes())
     job.setdefault('EnvironmentVariables',{})['OS_ACTIVITY_DT_MODE']='YES'
     p.write_bytes(plistlib.dumps(job,fmt=plistlib.FMT_BINARY))

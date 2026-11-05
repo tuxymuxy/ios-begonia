@@ -65,7 +65,6 @@ static int read_address(uint32_t address,uint8_t *dst,unsigned size) {
  if(size>126 || set_page(address))return -1;
  tx[0]=address&127;
  if(transfer(tx,rx,size+2))return -1;
- if(rx[1]!=0xff)return -1;
  memcpy(dst,rx+2,size);return 0;
 }
 /* Controller SRAM upload, never flash programming. Firmware is supplied privately
@@ -126,7 +125,7 @@ static int firmware_upload(void) {
  /* Hardware CRC metadata uses this chip's map, not Apollo's NT36675 map. */
  for(unsigned i=0;i<2;i++) {
   if(write_number(i?0x3f12c:0x3f128,le32(fw+4+i*12),3) ||
-     write_number(i?0x3f130:0x3f118,le32(fw+8+i*12),3) ||
+     write_number(i?0x3f130:0x3f118,le32(fw+8+i*12),2) ||
      write_number(i?0x3f104:0x3f100,le32(fw+24+i*4),4))return -1;
  }
  if(read_address(0x3f30e,&crc,1) || write_number(0x3f30e,crc|128,1) ||
@@ -150,14 +149,18 @@ static void touch_thread(__unused void *arg,__unused wait_result_t result) {
  spi=ml_io_map(0x11019000,0x1000);gpio=ml_io_map(0x10005000,0x1000);
  top=ml_io_map(0x10000000,0x1000);infra=ml_io_map(0x10001000,0x1000);
  if(!spi || !gpio || !top || !infra)goto stop;
- /* GPIO35..38 function5; GPIO1 IRQ, GPIO2 reset. Linux's actual DT
-  * marks reset active-high: drive it LOW to release, as its driver does. */
+ /* GPIO35..38 function5; GPIO1 IRQ, GPIO2 reset.
+  * MediaTek MT6785 GPIO: 0x004 is DIR_SET, 0x008 is DIR_CLR; 0x104 is DOUT_SET, 0x108 is DOUT_CLR.
+  * Novatek TP_RESX is active-low (ts_reset_active is output-high in DT). Pulse low then drive high. */
  uint32_t mode=rd(gpio,0x340);
  for(unsigned pin=35;pin<=38;pin++) { unsigned shift=(pin%8)*4;mode=(mode&~(15u<<shift))|(5u<<shift); }
  wr(gpio,0x340,mode);
  wr(gpio,0x300,rd(gpio,0x300)&~((15u<<4)|(15u<<8)));
- wr(gpio,0x108,1u<<2);wr(gpio,0x004,1u<<2); /* output low: deassert reset */
- wr(gpio,0x008,1u<<1); /* IRQ is input */
+ wr(gpio,0x004,1u<<2); /* GPIO2 is output (DIR_SET) */
+ wr(gpio,0x008,1u<<1); /* GPIO1 IRQ is input (DIR_CLR) */
+ wr(gpio,0x108,1u<<2); /* DOUT_CLR: pulse reset low */
+ delay_for_interval(10,NSEC_PER_MSEC);
+ wr(gpio,0x104,1u<<2); /* DOUT_SET: deassert reset high (TP_RESX high) */
  delay_for_interval(20,NSEC_PER_MSEC);
  wr(top,0x78,(3u<<8)|(1u<<15));wr(top,0x04,1u<<21); /* 26MHz crystal */
  wr(infra,0xa8,1u<<26); /* SPI5 clock gate clear */

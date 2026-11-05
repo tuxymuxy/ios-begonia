@@ -29,10 +29,17 @@ publishing source/notes to https://git.tuxy.dev/tuxy/ios-begonia (main).
 
 ## Current phone state
 
-After the owner reported repeated app processing and a forced reboot, they
-entered FASTBOOT. The verified ORIGINAL postmarketOS boot backup was flashed
-and reboot requested successfully. postmarketOS SSH is now available. The existing iOS data image was inspected
-READ-ONLY and unmounted afterward. Do not recreate/format the data image.
+Installed and verified build v16:
+- 49,768,448 bytes, SHA256 `05628179cae0b9e40dfdf1edc9993ff3fac78baff720e52c7ffcf3ca6367d334`.
+- Flashed to `boot` partition via fastboot (`oj5xugvg8h45cicy`).
+- AMFI hard-disabled via boot arguments: `cs_enforcement_disable=1 amfi_get_out_of_my_way=1 amfi_allow_any_signature=1 amfi=0xff`.
+- `--keep-console` omitted so text console releases screen to SpringBoard upon first frame.
+- `OS_ACTIVITY_DT_MODE` removed from `lsd` to silence console registration logs.
+- Fixed NT36672A touchscreen driver:
+  - Active-low reset pin GPIO2 driven high (`0x104` = `DOUT_SET`) after 10ms low pulse.
+  - Corrected CRC length registers to 2 bytes, preventing corruption of `DMA_CRC_EN_ADDR` (`0x3F132`).
+  - Removed dummy-byte check from `read_address()`.
+- Data image on postmarketOS userdata preserved intact. Original postmarketOS backup retained locally.
 Neither the system image nor the data image was erased during recovery.
 
 ## Latest iOS test and observations

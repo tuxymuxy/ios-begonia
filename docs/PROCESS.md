@@ -482,3 +482,19 @@ Root cause: in `upstream/hakios-xnu-kernel/userland/src/init.c` (`mount_data_vol
 Fixed `init.c` to pass `args.uid = -1`, `args.gid = -1`, `args.mask = -1` (`VNOVAL`), defaulting directory and file masks to `0777`/`0666` and owner to `UNKNOWNUID` (99). Added cleanup for stale `SystemGroup` directories, permissions on `/var/mobile/Library/Caches`, `/var/containers`, and `/var/db/lsd`, and disabled noisy `com.apple.nanoregistryd` and `com.apple.nanoregistrylaunchd`.
 Recompiled `init`, generated UI support image, built native payload `out/native-persistent-long-v15.payload`, and packaged `out/begonia-chain-xnu-forced/ios16-native-persistent-long-v15.img` (49,768,448 bytes, SHA256 `0d6e2a61b9aacb9e19c9eb68e90107038fa0493561440a063e0af242627b347e`).
 Uploaded, flashed to `/dev/disk/by-partlabel/boot`, and verified via readback SHA256 match. Ready for boot execution.
+
+
+### AMFI disable, touchscreen driver fixes, and v16 build — 2026-11-05T23:28:00+01:00
+
+During v15, owner reported verbose console loop displaying kernel memory reports (`programs 25, wired 177, free 1035 MB`) and wifid timers without visible SpringBoard GUI. Traced to `--keep-console` (`begonia_keep_console=1`) retaining the text console overlay and blocking `PE_initialize_console(NULL, kPEReleaseScreen)` from yielding to graphics mode. Also observed `0xe8008001` signature verification spam caused by `OS_ACTIVITY_DT_MODE` enabled on `com.apple.lsd`.
+
+Actions taken:
+1. Disabled AMFI and code signing enforcement in `tools/make_native_payload.py`: passed `cs_enforcement_disable=1 amfi_get_out_of_my_way=1 amfi_allow_any_signature=1 amfi=0xff` in kernel boot arguments.
+2. Removed `OS_ACTIVITY_DT_MODE` on `com.apple.lsd` in `tools/make_ui_support.py` to silence registration console noise.
+3. Removed `--keep-console` to allow the text console to cleanly release the display framebuffer upon SpringBoard first frame render.
+4. Resolved three Novatek NT36672A touchscreen bring-up bugs in `kernel/bsd/dev/begonia_touch.c`:
+   - Reset polarity: Novatek TP_RESX is active-low (`ts_reset_active` is `output-high` in device tree). Driver previously held GPIO2 permanently low (`0x108` = DOUT_CLR). Updated to pulse low for 10ms and drive high (`0x104` = DOUT_SET) to release hardware reset.
+   - CRC length register write: on NT36672A (`hw_crc == 1`), `ILM_LENGTH_ADDR` (`0x3F118`) and `DLM_LENGTH_ADDR` (`0x3F130`) are 2 bytes, not 3 bytes. Writing 3 bytes to `0x3F130` overflowed into `0x3F132` (`DMA_CRC_EN_ADDR`), corrupting the hardware CRC enable register. Corrected length writes to 2 bytes.
+   - Spurious dummy-byte check: removed `if (rx[1] != 0xff)` from `read_address()`. In SPI transactions, `rx[1]` is a turnaround dummy cycle byte and not a status indicator.
+5. Recompiled XNU kernel (`hakios-kernel`), updated `out/kernel.begonia-native-ufs`, rebuilt support volume, and packaged `out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img` (49,768,448 bytes, SHA256 `05628179cae0b9e40dfdf1edc9993ff3fac78baff720e52c7ffcf3ca6367d334`).
+6. Flashed to `boot` partition over fastboot (`fastboot -s oj5xugvg8h45cicy flash boot out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img`). Ready for reboot.

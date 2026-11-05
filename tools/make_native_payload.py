@@ -14,7 +14,7 @@ for line in subprocess.check_output(['nm','-n',str(root/'out/kernel.begonia-nati
     if len(parts)==3 and parts[2] in ('_loader_log','_loader_log_len','_begonia_console'):symbols[parts[2]]=int(parts[0],16)
 assert len(symbols)==3
 physical=lambda name:0x100000000+symbols[name]-0xfffffff006000000
-args=('begonia_data=1 var_hfs=begonia-data ' if a.data else '')+('begonia_touch=1 ' if a.touch else '')+('begonia_keep_console=1 ' if a.keep_console else '')+'begonia_watch='+str(a.watch_seconds)+' beg_log='+hex(physical('_loader_log'))+' beg_len='+hex(physical('_loader_log_len'))+' beg_con='+hex(physical('_begonia_console'))+' cpus=1 rd=md0 begonia_root=1 begonia_log=1 begonia_test=0 begonia_cpumon_log_limit=16 debug=0x8 -v epoch='+str(int(time.time()))
+args=('begonia_data=1 var_hfs=begonia-data ' if a.data else '')+('begonia_touch=1 ' if a.touch else '')+('begonia_keep_console=1 ' if a.keep_console else '')+'begonia_watch='+str(a.watch_seconds)+' beg_log='+hex(physical('_loader_log'))+' beg_len='+hex(physical('_loader_log_len'))+' beg_con='+hex(physical('_begonia_console'))+' cpus=1 rd=md0 begonia_root=1 begonia_log=1 begonia_test=0 begonia_cpumon_log_limit=16 debug=0x8 cs_enforcement_disable=1 amfi_get_out_of_my_way=1 amfi_allow_any_signature=1 amfi=0xff -v epoch='+str(int(time.time()))
 subprocess.run([sys.executable,str(root/'upstream/ios-sweet/tools/mkpayload.py'),str(root/'out/kernel.begonia-native-ufs'),str(root/'out/begonia-native.adt'),str(a.output),'--ramdisk',str(a.support_root),'--cmdline',args],check=True)
 b=bytearray(a.output.read_bytes());off,length=struct.unpack_from('<QQ',b,0x20);tree,_=adt.parse(b[off:off+length])
 chosen=next(c for c in tree.children if c.name=='chosen');memory=next(c for c in chosen.children if c.name=='memory-map')
