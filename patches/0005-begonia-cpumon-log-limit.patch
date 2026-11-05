@@ -1,0 +1,22 @@
+--- a/osfmk/kern/task_policy.c
++++ b/osfmk/kern/task_policy.c
+@@ -2864,8 +2864,17 @@
+ 				}
+ #endif
+ 
+-				printf("process %s[%d] denied attempt to escape CPU monitor"
+-				    " (missing required entitlement).\n", procname, pid);
++				/* Bring-up logging only: entitlement enforcement below is unchanged. */
++				static volatile uint32_t begonia_cpumon_warnings;
++				uint32_t limit = 0;
++				PE_parse_boot_argn("begonia_cpumon_log_limit", &limit, sizeof(limit));
++				uint32_t sequence = limit ? __sync_fetch_and_add(&begonia_cpumon_warnings, 1) : 0;
++				if (!limit || sequence < limit) {
++					printf("process %s[%d] denied attempt to escape CPU monitor"
++					    " (missing required entitlement).\n", procname, pid);
++				} else if (sequence == limit) {
++					printf("BEGONIA: repeated CPU monitor warnings suppressed; policy remains enforced.\n");
++				}
+ 			}
+ 
+ 			/* configure the limit values */

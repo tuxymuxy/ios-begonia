@@ -1,0 +1,503 @@
+/*
+ * Begonia read-only UFS root, adapted from ios-sweet patch 0028 (APSL 2.0).
+ * MediaTek UFSHCI at 0x11270000, LUN2, 4096-byte blocks; inherited state was
+ * measured and the first 8 KiB matched Linux in an independent boot test.
+ * Presents a staged APFS file through verified extents, never a writable disk.
+ * No filesystem metadata, GPT, NVRAM or other media is written.
+ */
+/* APSL 2.0: adapted from ios-sweet patch 0028, copyright dipa-studio. */
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/buf.h>
+#include <sys/conf.h>
+#include <sys/disk.h>
+#include <sys/errno.h>
+#include <sys/proc.h>
+#include <sys/uio.h>
+#include <miscfs/devfs/devfs.h>
+#include <kern/locks.h>
+#include <kern/clock.h>
+#include <machine/machine_routines.h>
+#include <arm/caches_internal.h>
+#include <vm/pmap.h>
+#include <vm/vm_kern.h>
+#include <pexpert/pexpert.h>
+#include <pexpert/device_tree.h>
+#include <libkern/libkern.h>
+
+extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
+/* osfmk/arm/machine_routines.h, not exported to the BSD layer */
+extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+
+#define REG_IS          0x20
+#define REG_IE          0x24
+#define REG_HCS         0x30
+#define REG_HCE         0x34
+#define REG_UTRLBA      0x50
+#define REG_UTRLBAU     0x54
+#define REG_UTRLDBR     0x58
+#define REG_UTRLCLR     0x5c
+#define REG_UTRLRSR     0x60
+
+#define HCS_DP          (1u << 0)
+#define HCS_UTRLRDY     (1u << 1)
+
+#define UFS_BLOCK       4096u
+#define BOUNCE_SIZE     (1u << 20)
+#define PRDT_CHUNK      (256u << 10)            /* PRDT byte count field: 18 bits */
+#define PRDT_MAX        (BOUNCE_SIZE / PRDT_CHUNK)
+#define CMD_TIMEOUT_NS  (5ull * NSEC_PER_SEC)
+
+struct utrd {
+	uint32_t dw0, dw1, dw2, dw3;
+	uint32_t ucdba, ucdbau;
+	uint32_t resp;          /* [31:16] response UPIU offset, [15:0] length, DWORDs */
+	uint32_t prdt;          /* [31:16] PRDT offset (DWORDs), [15:0] entries */
+};
+
+struct ucd {
+	uint8_t cmd[512];
+	uint8_t resp[512];
+	struct {
+		uint32_t addr_lo, addr_hi, rsvd, dbc;
+	} prdt[PRDT_MAX];
+};
+
+/* Layout of the contiguous DMA allocation. */
+#define DMA_UTRL        0x0000                  /* 1 KiB aligned */
+#define DMA_UCD         0x1000                  /* 128 byte aligned */
+#define DMA_BOUNCE      0x4000
+#define DMA_SIZE        (DMA_BOUNCE + BOUNCE_SIZE)
+
+static struct {
+	vm_offset_t regs;
+	vm_offset_t dma;                        /* kernel VA of the DMA allocation */
+	uint64_t dma_pa;
+	uint8_t lun;
+	uint8_t tag;
+	uint64_t first_block, nblocks;          /* partition, in 4 KiB device blocks */
+	uint32_t secsize;                       /* logical sector size for the BSD layer */
+	int bmajor, cmajor;
+	dev_t bdev;
+	bool ready;
+} su;
+
+struct begonia_extent { uint64_t logical, physical, count; };
+static struct begonia_extent root_extents[4096];
+static uint32_t root_extent_count;
+static int
+load_file_map(DTEntry node)
+{
+    const uint8_t *blob; unsigned int bytes=0;
+    if(SecureDTGetProperty(node,"file-extents",(void const **)&blob,&bytes)!=kSuccess || bytes<40)return EINVAL;
+    uint64_t h[4]; uint32_t count;
+    memcpy(h,blob,32);memcpy(&count,blob+32,4);
+    if(h[0]!=0x4245474558543031ULL || !h[1] || h[1]%4096 || count==0 || count>4096 || bytes!=40+count*24 || h[2]>=h[3] || h[3]>0xee5800)return EINVAL;
+    memcpy(root_extents,blob+40,count*24);
+    uint64_t next=0;
+    for(uint32_t i=0;i<count;i++){
+        struct begonia_extent *e=&root_extents[i];
+        if(e->logical!=next || !e->count || e->physical<h[2] || e->physical>=h[3] || e->count>h[3]-e->physical || e->count>h[1]/4096-next)return EINVAL;
+        next+=e->count;
+    }
+    if(next!=h[1]/4096)return EINVAL;
+    root_extent_count=count;su.first_block=0;su.nblocks=next;return 0;
+}
+
+static LCK_GRP_DECLARE(begonia_ufs_grp, "begonia_ufs");
+static LCK_MTX_DECLARE(begonia_ufs_lock, &begonia_ufs_grp);
+
+static inline uint32_t
+ufs_rd(uint32_t off)
+{
+	return *(volatile uint32_t *)(su.regs + off);
+}
+
+static inline void
+ufs_wr(uint32_t off, uint32_t v)
+{
+	*(volatile uint32_t *)(su.regs + off) = v;
+}
+
+static void
+dma_sync(uint32_t off, uint32_t len)
+{
+	flush_dcache64((addr64_t)(su.dma_pa + off), len, TRUE);
+}
+
+/*
+ * One SCSI command in slot 0, data (if any) to/from the bounce buffer.
+ * Read direction only. Returns 0 or an errno.
+ */
+static int
+ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len)
+{
+	struct utrd *utrd = (struct utrd *)(su.dma + DMA_UTRL);
+	struct ucd *ucd = (struct ucd *)(su.dma + DMA_UCD);
+	uint64_t ucd_pa = su.dma_pa + DMA_UCD, bounce_pa = su.dma_pa + DMA_BOUNCE;
+
+	if (len>BOUNCE_SIZE || su.lun!=2 || (cdb[0]!=0 && cdb[0]!=0x28)) return EPERM;
+    if (ufs_rd(REG_UTRLBA)!=(uint32_t)su.dma_pa || ufs_rd(REG_UTRLBAU)!=(uint32_t)(su.dma_pa>>32) || !(ufs_rd(REG_UTRLRSR)&1)) return EIO;
+	bzero(utrd, sizeof(*utrd));
+	bzero(ucd, sizeof(*ucd));
+
+	ucd->cmd[0] = 0x01;                     /* COMMAND UPIU */
+	ucd->cmd[1] = len ? 0x40 : 0x00;        /* R: data in */
+	ucd->cmd[2] = su.lun;
+	ucd->cmd[3] = ++su.tag;
+	ucd->cmd[12] = (uint8_t)(len >> 24);
+	ucd->cmd[13] = (uint8_t)(len >> 16);
+	ucd->cmd[14] = (uint8_t)(len >> 8);
+	ucd->cmd[15] = (uint8_t)len;
+	memcpy(&ucd->cmd[16], cdb, cdb_len);
+
+	utrd->dw0 = (1u << 28) | ((len ? 2u : 0u) << 25) | (1u << 24);
+	utrd->dw2 = 0x0f;                       /* OCS invalid until updated */
+	utrd->ucdba = (uint32_t)ucd_pa;
+	utrd->ucdbau = (uint32_t)(ucd_pa >> 32);
+	utrd->resp = (512u / 4) << 16 | (512u / 4);
+	if (len) {
+		uint32_t n = 0;
+		for (uint32_t done = 0; done < len; done += PRDT_CHUNK, n++) {
+			uint32_t chunk = MIN(PRDT_CHUNK, len - done);
+			ucd->prdt[n].addr_lo = (uint32_t)(bounce_pa + done);
+			ucd->prdt[n].addr_hi = (uint32_t)((bounce_pa + done) >> 32);
+			ucd->prdt[n].dbc = chunk - 1;
+		}
+		utrd->prdt = (1024u / 4) << 16 | n;
+	}
+
+	dma_sync(DMA_UTRL, sizeof(*utrd));
+	dma_sync(DMA_UCD, sizeof(*ucd));
+	if (len) {
+		dma_sync(DMA_BOUNCE, len);
+	}
+	__builtin_arm_dsb(0xf);
+
+	ufs_wr(REG_UTRLDBR, 1);
+	uint64_t deadline;
+	nanoseconds_to_absolutetime(CMD_TIMEOUT_NS, &deadline);
+	deadline += mach_absolute_time();
+	while (ufs_rd(REG_UTRLDBR) & 1) {
+		if (mach_absolute_time() > deadline) {
+			ufs_wr(REG_UTRLCLR, ~1u);
+			printf("BEGONIA UFS: command 0x%02x timed out\n", cdb[0]);
+			return ETIMEDOUT;
+		}
+		delay(1);
+	}
+	__builtin_arm_dsb(0xf);
+	ufs_wr(REG_IS, ufs_rd(REG_IS));         /* acknowledge completion status */
+
+	dma_sync(DMA_UTRL, sizeof(*utrd));
+	dma_sync(DMA_UCD, sizeof(*ucd));
+	if (len) {
+		dma_sync(DMA_BOUNCE, len);
+	}
+
+	uint32_t ocs = utrd->dw2 & 0xff;
+	if (ocs || ucd->resp[0] != 0x21 || ucd->resp[6] || ucd->resp[7]) {
+		printf("BEGONIA UFS: command 0x%02x failed: ocs 0x%x upiu 0x%x response 0x%x status 0x%x\n",
+		    cdb[0], ocs, ucd->resp[0], ucd->resp[6], ucd->resp[7]);
+		return EIO;
+	}
+	return 0;
+}
+
+/* READ(10) of count device blocks at lba into the bounce buffer. */
+static int
+ufs_read_blocks(uint64_t lba, uint32_t count)
+{
+	if (lba > UINT32_MAX || count > BOUNCE_SIZE / UFS_BLOCK) {
+		return EINVAL;
+	}
+	uint8_t cdb[10] = {
+		0x28, 0,
+		(uint8_t)(lba >> 24), (uint8_t)(lba >> 16), (uint8_t)(lba >> 8), (uint8_t)lba,
+		0, (uint8_t)(count >> 8), (uint8_t)count, 0
+	};
+	return ufs_scsi(cdb, sizeof(cdb), count * UFS_BLOCK);
+}
+
+static int
+ufs_take_over_host(void)
+{
+	uint32_t hce = ufs_rd(REG_HCE), hcs = ufs_rd(REG_HCS);
+	if (!(hce & 1) || !(hcs & HCS_DP) || !(hcs & HCS_UTRLRDY)) {
+		printf("BEGONIA UFS: host not ready (hce 0x%x hcs 0x%x)\n", hce, hcs);
+		return ENXIO;
+	}
+	if (ufs_rd(REG_UTRLDBR)) {
+		printf("BEGONIA UFS: requests outstanding from the bootloader\n");
+		return EBUSY;
+	}
+	ufs_wr(REG_IE, 0);                      /* polled operation */
+	ufs_wr(REG_IS, ufs_rd(REG_IS));
+	ufs_wr(REG_UTRLRSR, 0);
+	uint64_t list = su.dma_pa + DMA_UTRL;
+	ufs_wr(REG_UTRLBA, (uint32_t)list);
+	ufs_wr(REG_UTRLBAU, (uint32_t)(list >> 32));
+	ufs_wr(REG_UTRLRSR, 1);
+	/* Never ring a doorbell unless the host uses our list. */
+	if (ufs_rd(REG_UTRLBA) != (uint32_t)list || ufs_rd(REG_UTRLBAU) != (uint32_t)(list >> 32) ||
+	    !(ufs_rd(REG_UTRLRSR) & 1)) {
+		printf("BEGONIA UFS: host did not take our request list\n");
+		return EIO;
+	}
+	return 0;
+}
+
+static int
+begonia_ufs_open(__unused dev_t dev, int flags, __unused int devtype, __unused struct proc *p)
+{
+	if (!su.ready) {
+		return ENXIO;
+	}
+	return (flags & FWRITE) ? EROFS : 0;
+}
+
+static int
+begonia_ufs_close(__unused dev_t dev, __unused int flags, __unused int devtype, __unused struct proc *p)
+{
+	return 0;
+}
+
+static void
+begonia_ufs_strategy(buf_t bp)
+{
+	int error = 0;
+	caddr_t vaddr = NULL;
+	uint64_t off = (uint64_t)buf_blkno(bp) * su.secsize;
+	uint32_t count = buf_count(bp);
+	uint64_t part_bytes = su.nblocks * UFS_BLOCK;
+
+	buf_setresid(bp, count);
+	if (!(buf_flags(bp) & B_READ)) {
+		error = EROFS;
+		goto done;
+	}
+	if (off > part_bytes || count > part_bytes - off) {
+		error = EINVAL;
+		goto done;
+	}
+	if (count == 0) {
+		goto done;
+	}
+	if (buf_map(bp, &vaddr)) {
+		error = EIO;
+		goto done;
+	}
+
+	lck_mtx_lock(&begonia_ufs_lock);
+	for (uint32_t done = 0; done < count;) {
+		uint64_t pos = off + done;
+		uint64_t lba = pos / UFS_BLOCK;
+		uint32_t skip = (uint32_t)(pos % UFS_BLOCK);
+		uint32_t want = MIN(count - done, BOUNCE_SIZE - skip);
+        struct begonia_extent *extent=NULL;
+        for(uint32_t j=0;j<root_extent_count;j++)if(lba>=root_extents[j].logical && lba-root_extents[j].logical<root_extents[j].count){extent=&root_extents[j];break;}
+        if(extent==NULL){error=EIO;break;}
+        uint64_t available=(extent->count-(lba-extent->logical))*UFS_BLOCK-skip;
+        if(want>available)want=(uint32_t)available;
+        uint32_t blocks=(skip+want+UFS_BLOCK-1)/UFS_BLOCK;
+        error=ufs_read_blocks(extent->physical+lba-extent->logical,blocks);
+		if (error) {
+			break;
+		}
+		memcpy(vaddr + done, (const void *)(su.dma + DMA_BOUNCE + skip), want);
+		done += want;
+		buf_setresid(bp, count - done);
+	}
+	lck_mtx_unlock(&begonia_ufs_lock);
+	buf_unmap(bp);
+
+done:
+	if (error) {
+		buf_seterror(bp, error);
+	}
+	buf_biodone(bp);
+}
+
+static int
+begonia_ufs_ioctl(__unused dev_t dev, u_long cmd, caddr_t data, __unused int flag,
+    __unused struct proc *p, int is_char)
+{
+	uint32_t *f = (uint32_t *)data;
+	uint64_t *o = (uint64_t *)data;
+
+	switch (cmd) {
+	case DKIOCGETBLOCKSIZE:
+		*f = su.secsize;
+		return 0;
+	case DKIOCSETBLOCKSIZE:
+		if (is_char) {
+			return ENODEV;
+		}
+		if (*f < DEV_BSIZE || *f > UFS_BLOCK || (*f & (*f - 1))) {
+			return EINVAL;
+		}
+		su.secsize = *f;
+		return 0;
+	case DKIOCGETPHYSICALBLOCKSIZE:
+		*f = UFS_BLOCK;
+		return 0;
+	case DKIOCGETBLOCKCOUNT:
+		*o = su.nblocks * UFS_BLOCK / su.secsize;
+		return 0;
+	case DKIOCISWRITABLE:
+		*f = 0;
+		return 0;
+	case DKIOCGETMAXBLOCKCOUNTREAD:
+		*o = BOUNCE_SIZE / su.secsize;
+		return 0;
+	case DKIOCGETMAXBLOCKCOUNTWRITE:
+		*o = 0;
+		return 0;
+	case DKIOCGETMAXSEGMENTCOUNTREAD:
+	case DKIOCGETMAXSEGMENTCOUNTWRITE:
+		*o = 1;
+		return 0;
+	default:
+		return ENOTTY;
+	}
+}
+
+static int
+begonia_ufs_bioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
+{
+	return begonia_ufs_ioctl(dev, cmd, data, flag, p, 0);
+}
+
+static int
+begonia_ufs_cioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
+{
+	return begonia_ufs_ioctl(dev, cmd, data, flag, p, 1);
+}
+
+static int
+begonia_ufs_psize(__unused dev_t dev)
+{
+	return su.ready ? (int)MIN(su.nblocks * UFS_BLOCK / su.secsize, INT_MAX) : -1;
+}
+
+static int
+begonia_ufs_read(dev_t dev, struct uio *uio, __unused int ioflag)
+{
+	return physio(begonia_ufs_strategy, NULL, dev, B_READ, minphys, uio, (int)su.secsize);
+}
+
+static int
+begonia_ufs_write(__unused dev_t dev, __unused struct uio *uio, __unused int ioflag)
+{
+	return EROFS;
+}
+
+static const struct bdevsw begonia_ufs_bdevsw = {
+	.d_open     = begonia_ufs_open,
+	.d_close    = begonia_ufs_close,
+	.d_strategy = begonia_ufs_strategy,
+	.d_ioctl    = begonia_ufs_bioctl,
+	.d_dump     = eno_dump,
+	.d_psize    = begonia_ufs_psize,
+	.d_type     = D_DISK,
+};
+
+static const struct cdevsw begonia_ufs_cdevsw = {
+	.d_open       = begonia_ufs_open,
+	.d_close      = begonia_ufs_close,
+	.d_read       = begonia_ufs_read,
+	.d_write      = begonia_ufs_write,
+	.d_ioctl      = begonia_ufs_cioctl,
+	.d_stop       = eno_stop,
+	.d_reset      = eno_reset,
+	.d_ttys       = NULL,
+	.d_select     = eno_select,
+	.d_mmap       = eno_mmap,
+	.d_strategy   = eno_strat,
+	.d_reserved_1 = eno_getc,
+	.d_reserved_2 = eno_putc,
+	.d_type       = D_DISK,
+};
+
+static int
+begonia_ufs_init(void)
+{
+	DTEntry node;
+	uintptr_t const *reg = NULL;
+	unsigned int size = 0;
+	char want[64] = "staged APFS file";
+	int error;
+
+	if (SecureDTLookupEntry(NULL, "/begonia-ufs", &node) != kSuccess ||
+	    SecureDTGetProperty(node, "reg", (void const **)&reg, &size) != kSuccess ||
+	    size < 2 * sizeof(uintptr_t)) {
+		printf("BEGONIA UFS: no /sweet-ufs node in the device tree\n");
+		return ENXIO;
+	}
+	if(reg[0]!=0x11270000 || reg[1]!=0x2300)return EINVAL;
+    error=load_file_map(node);if(error)return error;
+
+	su.regs = ml_io_map(reg[0], reg[1]);
+	if (kmem_alloc_contig(kernel_map, &su.dma, DMA_SIZE, PAGE_MASK, 0, 0,
+	    KMA_DATA | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_IOKIT) != KERN_SUCCESS) {
+		printf("BEGONIA UFS: no contiguous DMA memory\n");
+		return ENOMEM;
+	}
+	ppnum_t pn = pmap_find_phys(kernel_pmap, (addr64_t)su.dma);
+	if (!pn) {
+		return ENOMEM;
+	}
+	su.dma_pa = ptoa_64(pn);
+	su.lun = 2;
+	su.secsize = DEV_BSIZE;
+
+	lck_mtx_lock(&begonia_ufs_lock);
+	error = ufs_take_over_host();
+	if (!error) {
+		static const uint8_t tur[6] = { 0x00 };
+		/* The first command after the bootloader may report a unit attention. */
+		for (int i = 0; i < 3 && (error = ufs_scsi(tur, sizeof(tur), 0)); i++) {
+		}
+	}
+	if (!error) {
+		error=ufs_read_blocks(root_extents[0].physical,1);
+        if(!error && memcmp((const void *)(su.dma+DMA_BOUNCE+32),"NXSB",4)!=0)error=EINVAL;
+	}
+	lck_mtx_unlock(&begonia_ufs_lock);
+	if (error) {
+		return error;
+	}
+
+	su.bmajor = bdevsw_add(-1, &begonia_ufs_bdevsw);
+	if (su.bmajor < 0) {
+		return ENXIO;
+	}
+	su.cmajor = cdevsw_add_with_bdev(-1, &begonia_ufs_cdevsw, su.bmajor);
+	if (su.cmajor < 0) {
+		return ENXIO;
+	}
+	su.bdev = makedev(su.bmajor, 0);
+	devfs_make_node(su.bdev, DEVFS_BLOCK, UID_ROOT, GID_OPERATOR, 0640, "begonia0");
+	devfs_make_node(makedev(su.cmajor, 0), DEVFS_CHAR, UID_ROOT, GID_OPERATOR, 0640, "rbegonia0");
+	su.ready = true;
+	printf("BEGONIA UFS: \"%s\" on LUN %u: first block 0x%llx, %llu MiB, read-only\n",
+	    want, su.lun, su.first_block, su.nblocks * UFS_BLOCK >> 20);
+	return 0;
+}
+
+/* Root device for rd=ufsroot0 (IOFindBSDRoot). */
+int begonia_ufs_rootdev(dev_t *dev);
+
+int
+begonia_ufs_rootdev(dev_t *dev)
+{
+	if (!su.ready) {
+		int error = begonia_ufs_init();
+		if (error) {
+			return error;
+		}
+	}
+	*dev = su.bdev;
+	return 0;
+}
+

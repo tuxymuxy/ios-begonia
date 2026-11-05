@@ -1,0 +1,159 @@
+{
+  "device": "begonia",
+  "aliases_requiring_live_confirmation": [
+    "begoniain"
+  ],
+  "soc": "mt6785",
+  "status": "open XNU and raw-syscall user-space hello booted on real phone, single core; iOS userland and peripheral drivers unfinished",
+  "source": "MiCode/Xiaomi_Kernel_OpenSource@777ef5dfc3c93ae5e8f004bec4285230295760b5",
+  "source_root": "arch/arm64/boot/dts/mediatek/",
+  "gic": {
+    "compatible": "arm,gic-v3",
+    "distributor": "0x0c000000",
+    "redistributor": "0x0c040000",
+    "redistributor_size": "0x200000"
+  },
+  "psci": {
+    "compatible": "arm,psci-1.0",
+    "method": "smc"
+  },
+  "timer": {
+    "source_frequency_hz": 13000000,
+    "secure_physical_intid": 29,
+    "nonsecure_physical_intid": 30,
+    "virtual_intid": 27,
+    "hypervisor_intid": 26
+  },
+  "storage": {
+    "kind": "UFS (live confirmed; earlier eMMC inference was incorrect)",
+    "controller": "MediaTek MT6785 UFSHCI",
+    "base": "0x11270000",
+    "size": "0x2300",
+    "intid": 136,
+    "model": "SKhynix H9HQ53AECMMDAR",
+    "driver_status": "not ported; MSDC0 eMMC plan superseded"
+  },
+  "touch": {
+    "source_compatible": "novatek,NVT-ts-spi",
+    "irq_gpio": 1,
+    "reset_gpio": 2,
+    "tddi_reset_gpio": 44,
+    "driver_status": "not ported; Infinix TD4160 driver incompatible"
+  },
+  "cpu_source_mpidrs": [
+    "0x0000",
+    "0x0100",
+    "0x0200",
+    "0x0300",
+    "0x0400",
+    "0x0500",
+    "0x0600",
+    "0x0700"
+  ],
+  "cpu_warning": "Live MIDR confirms A55 and A76; vendor cortex-a75 strings are inaccurate. EL1 granule confirmation remains outstanding.",
+  "unknown_until_phone_evidence": [
+    "temporary fastboot boot support",
+    "LK framebuffer address, stride, format and scanout lifetime",
+    "per-core EL1 16K granule support",
+    "watchdog behaviour at boot",
+    "XNU memory placement and interrupt operation"
+  ],
+  "do_not_reuse": [
+    "sweet UFS, RPMh, SPMI, GENI or Qualcomm USB registers",
+    "Infinix boot_a partition assumptions",
+    "Infinix touchscreen firmware",
+    "Infinix Mali-G52 GPU driver without a Mali-G76 adaptation",
+    "static vendor DTS framebuffer or memory allocation as a live map"
+  ],
+  "live_evidence": {
+    "date": "2026-11-05",
+    "os": "postmarketOS Linux 6.16.4",
+    "memory_total_kib": 5594044,
+    "ram_range": {
+      "base": "0x40000000",
+      "size": "0x180000000",
+      "warning": "subtract all live reserved-memory ranges"
+    },
+    "cpu0_midr": "0x411fd050 (Cortex-A55)",
+    "cpu6_midr": "0x413fd0b0 (Cortex-A76)",
+    "display": {
+      "width": 1080,
+      "height": 2340,
+      "linux_stride_bytes": 4320,
+      "bits_per_pixel": 32,
+      "warning": "Linux DRM buffer/stride is not necessarily the LK scanout buffer"
+    },
+    "touch_compatible": "novatek,nt36672a-ts",
+    "boot": {
+      "partition": "boot (single slot observed)",
+      "partition_bytes": 67108864,
+      "header_version": 2,
+      "page_size": 2048,
+      "kernel_address": "0x40080000",
+      "ramdisk_address": "0x47c80000",
+      "dtb_address": "0x41f78000"
+    },
+    "framebuffer_reservation": {
+      "base": "0x7d9b0000",
+      "size": "0x2250000",
+      "warning": "reservation only; live LK scanout address and pitch not established"
+    }
+  },
+  "hardware_probe": {
+    "entry_el": 2,
+    "dtb_address": "0x4bc80000",
+    "midr": "0x411fd050",
+    "mpidr": "0x81000000",
+    "mmfr0": "0x101122",
+    "tgran16": 1,
+    "cntfrq_hz": 13000000,
+    "sctlr_el2": "0x30c50830",
+    "log_transport": "ramoops console -> systemd-pstore archive",
+    "handoff": "original postmarketOS kernel started successfully",
+    "scope": "boot core only; other cores remain unprobed at privileged EL"
+  },
+  "xnu_hardware_boot": {
+    "kernel": "xnu-8796.121.2 / Darwin 22.5.0, HakiOS base plus opt-in begonia log patch",
+    "cpus": 1,
+    "optional_drivers": 0,
+    "timer_interrupt": 27,
+    "kernel_phys_base": "0x100000000",
+    "ram_bytes": "0xb7f00000",
+    "user_program": "source-only hello as PID 1",
+    "verified_log": "Hello from user space on Darwin!",
+    "end": "PID 1 exits 0 -> expected initproc panic",
+    "fallback": "prior-attempt marker observed on subsequent boot; postmarketOS started",
+    "ios_userland": false,
+    "display": false
+  },
+  "mu_silicium": {
+    "upstream_commit": "f971025b5f4478425aa9ef30658102a2506e7f59",
+    "firmware_build": true,
+    "phone_menu_display": true,
+    "volume_navigation": true,
+    "countdown": true,
+    "os_handoff": "hangs after validation; deferred by user",
+    "installed": "removed; original boot restored before direct iOS test"
+  },
+  "native_ios_test": {
+    "verified_userland_boot": false,
+    "ufs_read_probe": true,
+    "verbose_framebuffer_seen": true,
+    "scanout": {
+      "base": "0x7e384000",
+      "width": 1080,
+      "height": 2340,
+      "stride": 4320,
+      "ovl_base": "0x14008000",
+      "layer": 1
+    },
+    "current_test": "v8 full startup buffer in 2 MiB reserved mirror; parallel matching Cortex-A55 QEMU comparison",
+    "ios_userland_messages_observed": true,
+    "physical_observation": "v6: verbose text ends and clean Apple logo remains; lock/home screen not yet confirmed",
+    "native_apfs_root_on_ufs_verified": true,
+    "springboard_running_verified": true,
+    "backboardd_startup_complete_verified": true,
+    "bgra_frame_submissions_verified": true,
+    "first_frame_console_release_verified": true
+  }
+}

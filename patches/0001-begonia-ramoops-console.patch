@@ -1,0 +1,53 @@
+--- a/osfmk/arm64/loader_return.c
++++ b/osfmk/arm64/loader_return.c
+@@ -84,6 +84,42 @@
+  */
+ static uint32_t loader_log_lock;
+ 
++
++/* Begonia bring-up: only with begonia_log=1, after early VM setup.
++ * Layout measured from the owner's postmarketOS ramoops parameters, ECC off.
++ * Logs remain in reserved RAM; no storage writes. Single-core bring-up only.
++ */
++static volatile uint32_t *begonia_console;
++static void
++begonia_console_putc(char c)
++{
++    if (begonia_console == NULL) return;
++    const uint32_t cap = 0x40000 - 12;
++    volatile uint32_t *h = begonia_console;
++    volatile unsigned char *d = (volatile unsigned char *)(h + 3);
++    uint32_t at = h[1];
++    if (h[0] != 0x43474244 || at >= cap || h[2] > cap) {
++        h[0] = 0x43474244; h[1] = 0; h[2] = 0; at = 0;
++    }
++    d[at] = (unsigned char)c;
++    h[1] = (at + 1) % cap;
++    if (h[2] < cap) h[2]++;
++    __asm__ volatile("dsb sy" ::: "memory");
++}
++static void
++begonia_console_init(void)
++{
++    uint32_t enabled = 0;
++    if (!PE_parse_boot_argn("begonia_log", &enabled, sizeof(enabled)) || !enabled) return;
++    begonia_console = (volatile uint32_t *)ml_io_map(0x4d09f000ULL, 0x40000);
++    if (begonia_console == NULL) return;
++    for (uint32_t i = 0; i < loader_log_len && i < LOADER_LOG_HEAD; i++)
++        begonia_console_putc(loader_log[i]);
++    const char *banner = "\nBEGONIA XNU: persistent console mapped\n";
++    while (*banner) begonia_console_putc(*banner++);
++}
++STARTUP(EARLY_BOOT, STARTUP_RANK_LAST, begonia_console_init);
++
+ static void loader_log_put_locked(char c);
+ 
+ void
+@@ -138,6 +174,7 @@
+ static void
+ loader_log_put_locked(char c)
+ {
++	begonia_console_putc(c);
+ 	if (loader_log_linear || loader_log_len < LOADER_LOG_HEAD) {
+ 		if (loader_log_len < LOADER_LOG_SIZE) {
+ 			loader_log[loader_log_len++] = c;

@@ -1,0 +1,50 @@
+--- a/osfmk/arm64/loader_return.c
++++ b/osfmk/arm64/loader_return.c
+@@ -553,6 +553,11 @@
+ 
+ static thread_call_t hv_wdt_call;
+ static uint32_t hv_wdt_enabled;
++/* Begonia test sessions: retain watchdog protection and reset at a bounded time.
++ * Keys/registers are those of Linux's MediaTek watchdog and the live DTB. */
++static vm_offset_t begonia_wdt;
++static uint64_t begonia_test_deadline;
++
+ 
+ #define MEMORY_REPORT_BEATS     6               /* a line about memory every so many heartbeats */
+ 
+@@ -606,6 +611,21 @@
+ {
+ 	uint64_t deadline;
+ 
++    if(begonia_test_deadline && mach_absolute_time()>=begonia_test_deadline){
++        printf("BEGONIA TEST: timed warm reset to postmarketOS\n");
++        __asm__ volatile("dsb sy" ::: "memory");
++        register uint64_t r0 __asm__("x0")=0x84000009;
++        register uint64_t r1 __asm__("x1")=0;
++        register uint64_t r2 __asm__("x2")=0;
++        register uint64_t r3 __asm__("x3")=0;
++        __asm__ volatile("smc #0" : "+r"(r0),"+r"(r1),"+r"(r2),"+r"(r3) : : "x4","x5","x6","x7","x8","x9","x10","x11","x12","x13","x14","x15","x16","x17","memory");
++        if(begonia_wdt)*(volatile uint32_t *)(begonia_wdt+0x14)=0x1209;
++        for(;;)__asm__ volatile("wfe");
++    }
++    if(begonia_wdt && (*(volatile uint32_t *)begonia_wdt&1)){
++        *(volatile uint32_t *)(begonia_wdt+8)=0x1971;
++        __asm__ volatile("dsb sy" ::: "memory");
++    }
+ 	if (hv_wdt_enabled) {
+ 		register uint64_t x0 __asm__("x0") = VIRT_WDT_PET;
+ 		register uint64_t x1 __asm__("x1") = 0;
+@@ -628,6 +648,13 @@
+ hv_wdt_pet_init(void)
+ {
+ 	PE_parse_boot_argn("hv_wdt_pet", &hv_wdt_enabled, sizeof(hv_wdt_enabled));
++    uint32_t seconds=0;
++    if(PE_parse_boot_argn("begonia_test",&seconds,sizeof(seconds)) && seconds>=30 && seconds<=600){
++        begonia_wdt=ml_io_map(0x10007000,0x1000);
++        clock_interval_to_deadline(seconds,NSEC_PER_SEC,&begonia_test_deadline);
++        printf("BEGONIA TEST: bounded %u second session, watchdog mode 0x%x\n",seconds,begonia_wdt?*(volatile uint32_t *)begonia_wdt:0);
++    }
++
+ 	hv_wdt_call = thread_call_allocate(hv_wdt_pet, NULL);
+ 	hv_wdt_pet(NULL, NULL);
+ }

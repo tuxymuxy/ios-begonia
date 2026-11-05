@@ -1,0 +1,21 @@
+The root LICENSE applies to the independently written bring-up files at this
+workspace's root, boot/, tools/, devices/begonia/ and docs/.
+
+Repositories under upstream/ retain their own copyrights and licenses.
+ios-sweet and HakiOS loader research are MIT licensed; XNU-derived code is
+APSL 2.0. Xiaomi's Linux source is GPL licensed. No upstream source was copied
+into this workspace's diagnostic. Board addresses and hardware facts were
+read from the cited source and live device tree.
+
+Private captures and generated diagnostic boot images contain the owner's
+postmarketOS kernel/ramdisk and device-specific information. They are ignored
+and are not covered by a blanket redistribution grant in this notice.
+
+The synthetic empty CHRP NVRAM bank in tools/make_begonia_adt.py follows the
+HakiOS loader's MIT implementation; its license is in licenses/HakiOS-MIT.txt.
+patches/0001-begonia-ramoops-console.patch modifies XNU-derived code and is
+under APSL 2.0, as provided in upstream/hakios-xnu-kernel/LICENSE.APSL.
+boot/ufs_probe.c adapts ios-sweet's MIT shim UFS transport; license retained in
+licenses/ios-sweet-MIT.txt. kernel/bsd/dev/begonia_ufs.c adapts its XNU-derived
+root block driver and is APSL 2.0; see licenses/XNU-APSL.txt. The root-hook and
+bounded-test patches are also XNU derivatives under APSL 2.0.

@@ -1,0 +1,27 @@
+--- a/bsd/conf/files
++++ b/bsd/conf/files
+@@ -688,3 +688,5 @@
+ bsd/skywalk/packet/pbufpool_kern.c		optional skywalk
+ bsd/dev/cpu_copy_in_cksum_gen.c			optional skywalk
+ 
++bsd/dev/begonia_ufs.c	standard
++bsd/dev/begonia_touch.c	standard
+--- a/iokit/bsddev/IOKitBSDInit.cpp
++++ b/iokit/bsddev/IOKitBSDInit.cpp
+@@ -784,6 +784,16 @@
+ 		}
+ 	}
+ 
++// Begonia: read-only APFS file through verified physical extents on UFS LUN2.
++    uint32_t begonia_root=0;
++    if(PE_parse_boot_argn("begonia_root",&begonia_root,sizeof(begonia_root)) && begonia_root==1){
++        extern int begonia_ufs_rootdev(dev_t *dev);
++        OSSafeReleaseNULL(matching);
++        int error=begonia_ufs_rootdev(root);
++        if(error)panic("BEGONIA root unavailable: %d",error);
++        strlcpy(rootName,"begonia0",rootNameSize);*oflags=0;goto iofrootx;
++    }
++
+ //
+ //	Now check if we are trying to root on a memory device
+ //

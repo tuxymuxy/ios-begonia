@@ -1,0 +1,25 @@
+--- a/osfmk/arm64/loader_return.c
++++ b/osfmk/arm64/loader_return.c
+@@ -666,3 +666,11 @@
+ 	hv_wdt_pet(NULL, NULL);
+ }
+ STARTUP(EARLY_BOOT, STARTUP_RANK_LAST, hv_wdt_pet_init);
++
++/* Capture serial-only diagnostics once this board's RAM console is active. */
++void begonia_serial_capture(char c);
++void
++begonia_serial_capture(char c)
++{
++    if (begonia_console != NULL) loader_log_putc(c);
++}
+--- a/pexpert/arm/pe_serial.c
++++ b/pexpert/arm/pe_serial.c
+@@ -1004,6 +1004,8 @@
+ static
+ uart_putc_options_(char c, bool poll, bool force)
+ {
++	extern void begonia_serial_capture(char c);
++	begonia_serial_capture(c);
+ 	struct pe_serial_functions *fns = gPESF;
+ 
+ 	while (fns != NULL) {

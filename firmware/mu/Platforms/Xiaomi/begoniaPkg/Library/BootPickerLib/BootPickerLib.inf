@@ -1,0 +1,22 @@
+[Defines]
+  INF_VERSION = 0x00010005
+  BASE_NAME = BegoniaBootPickerLib
+  FILE_GUID = 5C3183CE-58AB-47C6-ACB9-147A1B158DE0
+  MODULE_TYPE = DXE_DRIVER
+  VERSION_STRING = 0.1
+  LIBRARY_CLASS = DeviceBootManagerLib|DXE_DRIVER
+[Sources]
+  Callbacks.c
+  BootPicker.c
+  Handoff.S
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  MsCorePkg/MsCorePkg.dec
+[LibraryClasses]
+  UefiLib
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  BaseMemoryLib
+  ArmLib
+  CacheMaintenanceLib

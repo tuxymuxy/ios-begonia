@@ -1,0 +1,6 @@
+# Source-only diagnostics, then one synthetic swipe while physical touch is unported.
+/redwood/bin/hello_dyn started by launchd
+/redwood/bin/svc_test
+/redwood/bin/surf_test
+/bin/ps -A
+/redwood/bin/rwtouch wait 60 swipe 0.5 0.985 0.5 0.3 250 wait 240 swipe 0.5 0.985 0.5 0.3 250 wait 300 swipe 0.5 0.985 0.5 0.3 250 &

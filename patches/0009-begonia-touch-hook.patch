@@ -1,0 +1,10 @@
+--- a/bsd/dev/hakios.input.c
++++ b/bsd/dev/hakios.input.c
+@@ -218,5 +218,7 @@
+ 
+ void
+ hakios_input_init(void)
+ {
++	extern void begonia_touch_init(void);
++	begonia_touch_init();
+ 	int major = cdevsw_add(-1, &touch_cdevsw);

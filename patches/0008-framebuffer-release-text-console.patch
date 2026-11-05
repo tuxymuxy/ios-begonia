@@ -1,0 +1,13 @@
+--- a/iokit/Kernel/MiniIOMobileFramebuffer.cpp
++++ b/iokit/Kernel/MiniIOMobileFramebuffer.cpp
+@@ -1536,6 +1536,10 @@
+ 				/* the first picture: the kernel's text console must stop drawing over it */
+ 				fGraphics = true;
+ 				PE_initialize_console(NULL, kPEGraphicsMode);
++				/* GraphicsMode sets flags; ReleaseScreen stops an acquired text console. */
++				uint32_t keepConsole = 0;
++				PE_parse_boot_argn("begonia_keep_console", &keepConsole, sizeof(keepConsole));
++				if (!keepConsole) PE_initialize_console(NULL, kPEReleaseScreen);
+ 			}
+ 			drawLayer(s, src, dst);
+ 			if (layer == 0) {

@@ -1,0 +1,42 @@
+{
+  "ios-sweet": {
+    "url": "https://github.com/dipa-studio/ios-sweet.git",
+    "commit": "45263bee51df4a0f55cdf9c649af886399488ddb",
+    "branch": "main"
+  },
+  "xiaomi-begonia": {
+    "url": "https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git",
+    "commit": "777ef5dfc3c93ae5e8f004bec4285230295760b5",
+    "branch": "begonia-r-oss"
+  },
+  "hakios-mt6768": {
+    "url": "https://github.com/oosexgang/hakios-mt6768.git",
+    "commit": "b60346c8ae50b539c51a1156899cc86f161bba5c",
+    "branch": "main"
+  },
+  "hakios-xnu-kernel": {
+    "url": "https://github.com/oosexgang/hakios-xnu-kernel.git",
+    "commit": "397750dea821d76d9bdae0355f43513ed2a4c346",
+    "branch": "main"
+  },
+  "Mu-Silicium": {
+    "url": "https://github.com/Project-Silicium/Mu-Silicium.git",
+    "commit": "f971025b5f4478425aa9ef30658102a2506e7f59",
+    "branch": "main"
+  },
+  "ios-viva": {
+    "url": "https://github.com/Nik300/ios-viva.git",
+    "branch": "viva",
+    "commit": "19e1bd1d2506fdcae2f667b426c69c2a526515cb"
+  },
+  "viva-gpu": {
+    "url": "https://github.com/Nik300/viva-gpu.git",
+    "branch": "main",
+    "commit": "ab2a1b43383a436641a33a469514c38dde1ed3ad"
+  },
+  "ios-apollo": {
+    "url": "https://github.com/aTechGeekDev/ios-apollo.git",
+    "branch": "main",
+    "commit": "1f75f381e31da96de537653fbac2252d2eb80418"
+  }
+}

@@ -1,0 +1,11 @@
+--- a/osfmk/console/serial_console.c
++++ b/osfmk/console/serial_console.c
+@@ -513,6 +513,8 @@
+ console_write(char *str, int size)
+ {
+ 	assert(str != NULL);
++	extern void begonia_serial_capture(char c);
++	for (int capture = 0; capture < size; capture++) begonia_serial_capture(str[capture]);
+ 
+ 	char *write_ptr = NULL;
+ 	int chunk_size = CPU_CONS_BUF_SIZE;
