@@ -38,7 +38,9 @@
     "irq_gpio": 1,
     "reset_gpio": 2,
     "tddi_reset_gpio": 44,
-    "driver_status": "experimental native SPI5 firmware upload and report decoder; physical input not yet verified"
+    "driver_status": "Native v21 verifies firmware startup and real finger events; GUI interaction confirmation pending",
+    "kernel_events_verified": true,
+    "gui_interaction_verified": false
   },
   "cpu_source_mpidrs": [
     "0x0000",

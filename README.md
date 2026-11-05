@@ -10,8 +10,8 @@ Current status:
 - Native XNU, UFS-backed read-only iOS system image, launchd, backboardd and
   SpringBoard run on the phone. Software-rendered frames reach the real panel.
 - First boot required a long attempt; the earlier 4/15-minute limits were too short.
-- Novatek NT36672A touch: experimental SPI5 driver and private firmware upload;
-  hardware initialization is under active testing. Physical touch is not verified.
+- Novatek NT36672A touch: firmware boot and physical finger events are verified
+  in XNU. App interaction is awaiting the owner's UI test; see [touch](docs/TOUCH.md).
 - Persistent data: a separate 16 GiB HFS+ image is prepared; the isolated write
   path mounted successfully, and an iOS-written marker survived reboot.
 - GPU: Linux G76 feature masks captured; native hardware acceleration is not ported.

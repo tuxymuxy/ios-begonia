@@ -32,29 +32,37 @@ static void wr(vm_offset_t b,unsigned o,uint32_t v) {
 static int transfer(const uint8_t *tx,uint8_t *rx,unsigned len) {
  unsigned done=0;int paused=0;
  if (!len || len>256) return -1;
- wr(spi,CMD,CMD_BASE|4);wr(spi,CMD,CMD_BASE);
+ wr(spi,CMD,CMD_BASE|4);delay(1);wr(spi,CMD,CMD_BASE);
  (void)rd(spi,STATUS);
  while(done<len) {
   unsigned count=MIN(32u,len-done),i;uint32_t cmd=CMD_BASE;
+  /* Packet size must be visible before TX FIFO writes. */
+  wr(spi,0x04,((count-1)<<16)|5);
   for(i=0;i<count;i+=4) {
    uint32_t word=0;unsigned j;for(j=0;j<4 && i+j<count;j++)word|=(uint32_t)tx[done+i+j]<<(8*j);
    wr(spi,0x10,word);
   }
-  wr(spi,0x04,((count-1)<<16)|5);
   if(done+count<len)cmd|=1u<<4;
   wr(spi,CMD,cmd|(paused?2u:1u));
-  unsigned timeout;uint32_t status=0;
+  /* At the configured 1MHz, wait through the wire time before reading
+   * non-destructive STATUS1 (bit0=idle). Polling read-clear STATUS0 loses
+   * completions on this controller. This sequence passed full SRAM/boot
+   * validation and report reads on the physical phone under Linux. */
+  delay(count*8+12);
+  unsigned timeout;
   for(timeout=0;timeout<2000;timeout++) {
-   status=rd(spi,STATUS);if(status&3)break;delay(10);
+   if(rd(spi,0x20)&1)break;delay(10);
   }
-  if(!(status&3)) { wr(spi,CMD,CMD_BASE|4);wr(spi,CMD,CMD_BASE);return -1; }
-  paused=(status&2)!=0;
+  if(timeout==2000) { wr(spi,CMD,CMD_BASE|4);wr(spi,CMD,CMD_BASE);return -1; }
+  (void)rd(spi,STATUS); /* acknowledge once, after idle */
+  paused=done+count<len;
   for(i=0;i<count;i+=4) {
    uint32_t word=rd(spi,0x14);unsigned j;
    for(j=0;j<4 && i+j<count;j++)if(rx)rx[done+i+j]=word>>(8*j);
   }
   done+=count;
  }
+ delay(5); /* ensure a quiet CS interval before the next Novatek command */
  return paused?-1:0;
 }
 static int set_page(uint32_t address) {
@@ -121,7 +129,8 @@ static int firmware_upload(void) {
    readback_bad++;
   }
  }
- printf("BEGONIA TOUCH: %u of %u section readbacks differ; hardware CRC will validate boot\n",readback_bad,count);
+ printf("BEGONIA TOUCH: %u of %u section readbacks differ\n",readback_bad,count);
+ if(readback_bad)return -1;
  /* Hardware CRC metadata uses this chip's map, not Apollo's NT36675 map. */
  for(unsigned i=0;i<2;i++) {
   if(write_number(i?0x3f12c:0x3f128,le32(fw+4+i*12),3) ||
@@ -149,18 +158,14 @@ static void touch_thread(__unused void *arg,__unused wait_result_t result) {
  spi=ml_io_map(0x11019000,0x1000);gpio=ml_io_map(0x10005000,0x1000);
  top=ml_io_map(0x10000000,0x1000);infra=ml_io_map(0x10001000,0x1000);
  if(!spi || !gpio || !top || !infra)goto stop;
- /* GPIO35..38 function5; GPIO1 IRQ, GPIO2 reset.
-  * MediaTek MT6785 GPIO: 0x004 is DIR_SET, 0x008 is DIR_CLR; 0x104 is DOUT_SET, 0x108 is DOUT_CLR.
-  * Novatek TP_RESX is active-low (ts_reset_active is output-high in DT). Pulse low then drive high. */
+ /* GPIO35..38 function5; GPIO1 IRQ; GPIO2 is low in the measured
+  * working Linux configuration. The captured board DT marks reset active-high. */
  uint32_t mode=rd(gpio,0x340);
  for(unsigned pin=35;pin<=38;pin++) { unsigned shift=(pin%8)*4;mode=(mode&~(15u<<shift))|(5u<<shift); }
  wr(gpio,0x340,mode);
  wr(gpio,0x300,rd(gpio,0x300)&~((15u<<4)|(15u<<8)));
- wr(gpio,0x004,1u<<2); /* GPIO2 is output (DIR_SET) */
- wr(gpio,0x008,1u<<1); /* GPIO1 IRQ is input (DIR_CLR) */
- wr(gpio,0x108,1u<<2); /* DOUT_CLR: pulse reset low */
- delay_for_interval(10,NSEC_PER_MSEC);
- wr(gpio,0x104,1u<<2); /* DOUT_SET: deassert reset high (TP_RESX high) */
+ wr(gpio,0x108,1u<<2);wr(gpio,0x004,1u<<2); /* output low, matching Linux */
+ wr(gpio,0x008,1u<<1); /* IRQ input */
  delay_for_interval(20,NSEC_PER_MSEC);
  wr(top,0x78,(3u<<8)|(1u<<15));wr(top,0x04,1u<<21); /* 26MHz crystal */
  wr(infra,0xa8,1u<<26); /* SPI5 clock gate clear */
