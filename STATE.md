@@ -29,16 +29,13 @@ publishing source/notes to https://git.tuxy.dev/tuxy/ios-begonia (main).
 
 ## Current phone state
 
-Installed and verified build v16:
-- 49,768,448 bytes, SHA256 `05628179cae0b9e40dfdf1edc9993ff3fac78baff720e52c7ffcf3ca6367d334`.
-- Flashed to `boot` partition via fastboot (`oj5xugvg8h45cicy`).
+Prepared build v17:
+- 49,768,448 bytes, SHA256 `3ef21eef66b70dff3a86d5d40f7596fbfcc7698f928c3c3651e4fa2a02f78f69`.
+- Re-enabled `begonia_keep_console=1` to ensure framebuffer remains continuously driven (preventing screen blanking from `kPEReleaseScreen`, matching verified milestone v10).
+- Pure software framebuffer rendering retained (no hardware GPU drivers loaded).
 - AMFI hard-disabled via boot arguments: `cs_enforcement_disable=1 amfi_get_out_of_my_way=1 amfi_allow_any_signature=1 amfi=0xff`.
-- `--keep-console` omitted so text console releases screen to SpringBoard upon first frame.
-- `OS_ACTIVITY_DT_MODE` removed from `lsd` to silence console registration logs.
-- Fixed NT36672A touchscreen driver:
-  - Active-low reset pin GPIO2 driven high (`0x104` = `DOUT_SET`) after 10ms low pulse.
-  - Corrected CRC length registers to 2 bytes, preventing corruption of `DMA_CRC_EN_ADDR` (`0x3F132`).
-  - Removed dummy-byte check from `read_address()`.
+- `OS_ACTIVITY_DT_MODE` removed from `lsd` to prevent signature verification console flood.
+- Novatek NT36672A touchscreen fixes included (GPIO2 reset pin pulsed low then driven HIGH `0x104`, 2-byte CRC length, dummy-byte check removed).
 - Data image on postmarketOS userdata preserved intact. Original postmarketOS backup retained locally.
 Neither the system image nor the data image was erased during recovery.
 

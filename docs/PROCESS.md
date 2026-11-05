@@ -498,3 +498,16 @@ Actions taken:
    - Spurious dummy-byte check: removed `if (rx[1] != 0xff)` from `read_address()`. In SPI transactions, `rx[1]` is a turnaround dummy cycle byte and not a status indicator.
 5. Recompiled XNU kernel (`hakios-kernel`), updated `out/kernel.begonia-native-ufs`, rebuilt support volume, and packaged `out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img` (49,768,448 bytes, SHA256 `05628179cae0b9e40dfdf1edc9993ff3fac78baff720e52c7ffcf3ca6367d334`).
 6. Flashed to `boot` partition over fastboot (`fastboot -s oj5xugvg8h45cicy flash boot out/begonia-chain-xnu-forced/ios16-native-persistent-long-v16.img`). Ready for reboot.
+
+
+### Retaining keep_console and basic framebuffer (v17) — 2026-11-05T23:34:00+01:00
+
+In v16, omitting `--keep-console` caused `PE_initialize_console(NULL, kPEReleaseScreen)` to unbind the simplefb console upon the first graphics frame, leaving the panel blank with only the backlight illuminated. Confirmed that milestone v10 retained the live framebuffer by keeping `begonia_keep_console=1`. User requested basic framebuffer and keeping console output.
+
+Built v17 payload and image:
+- Restored `begonia_keep_console=1` to keep the display scanout live and continuous.
+- Pure basic software framebuffer rasterizer maintained (no GPU driver).
+- Kept AMFI disabled (`cs_enforcement_disable=1 amfi_get_out_of_my_way=1 amfi_allow_any_signature=1 amfi=0xff`).
+- Kept `lsd` console logging silenced.
+- Kept Novatek NT36672A touchscreen bring-up fixes in kernel.
+- Packaged `out/begonia-chain-xnu-forced/ios16-native-persistent-long-v17.img` (49,768,448 bytes, SHA256 `3ef21eef66b70dff3a86d5d40f7596fbfcc7698f928c3c3651e4fa2a02f78f69`). Ready for fastboot flash.
