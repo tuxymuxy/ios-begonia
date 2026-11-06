@@ -1,0 +1,40 @@
+--- a/userland/src/inject.c
++++ b/userland/src/inject.c
+@@ -693,6 +693,8 @@
+ #define TOUCH_MODE_WAKE         0xfe
+ #define TOUCH_MODE_OFF          0xff
+ static volatile int touch_mode;
++/* Begonia diagnostic: bypass tap-to-wake translation, not a global default. */
++static bool begonia_touch_direct;
+ 
+ /* What the event server tells a service of ours: said once per name, to learn what there is. */
+ static Boolean
+@@ -917,6 +919,7 @@
+ 
+ 		if (sysctlbyname("kern.bootargs", arguments, &size, NULL, 0) == 0) {
+ 			touch_latency = strstr(arguments, "touch_lat=1") != NULL;
++			begonia_touch_direct = strstr(arguments, "begonia_touch_direct=1") != NULL;
+ 		}
+ 		mach_timebase_info(&timebase);
+ 	}
+@@ -951,14 +954,18 @@
+ 	while (read(device, &t, sizeof(t)) == (ssize_t)sizeof(t)) {
+ 		uint64_t read_at = mach_absolute_time();
+ 
+-		if (count++ < 4) {
++		if (touch_latency || count++ < 4) {
+ 			say("hakios: input: sample type %u finger %u at %u %u\n", t.type, t.finger, t.x, t.y);
++		}
++		if (touch_latency && (t.type == HAKIOS_TOUCH_DOWN || t.type == HAKIOS_TOUCH_UP)) {
++			say("begonia: input route type %u finger %u mode %#x direct %u waking %#x\n",
++			    t.type, t.finger, touch_mode, begonia_touch_direct, waking);
+ 		}
+ 		if (t.type > HAKIOS_TOUCH_UP) {
+ 			if (buttons != NULL) {
+ 				send_button(buttons, &t);
+ 			}
+-		} else if (t.type == HAKIOS_TOUCH_DOWN && (touch_mode & 0xff) == TOUCH_MODE_WAKE && buttons != NULL) {
++		} else if (t.type == HAKIOS_TOUCH_DOWN && !begonia_touch_direct && (touch_mode & 0xff) == TOUCH_MODE_WAKE && buttons != NULL) {
+ 			/*
+ 			 * The display is off and a tap is to wake it. The lock button is what wakes it here:
+ 			 * press it for the finger, and keep the rest of this touch to ourselves.

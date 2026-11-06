@@ -5,37 +5,34 @@
 Confirm the physical touch port in the iOS GUI. **Native controller startup and
 real finger coordinates are verified in XNU; GUI interaction is not yet verified.**
 User rejected two-hour waits. Use short bounded tests. The ten-minute UI
-test failed to open apps; no further tests tonight.
+test failed to open apps. Work resumed at the owner's request on 2026-11-06.
 
 ## Current phone / next action
 
-**Stopped for the night at the owner's request. Phone is running postmarketOS.**
-The original 64 MiB PMOS boot image was restored over SSH and its full checksum
-verified, without another reboot. Next normal restart boots PMOS, not the test.
-No scheduled or background test is pending. iOS system/data images remain intact.
+Work resumed on 2026-11-06. PMOS was booted from its restored original image.
+Built and installed **v23 routing diagnostic**, readback verified. Reboot is the
+final action of this turn; UI result is pending owner feedback. Deadline600s.
+No scripted gestures. Original PMOS backup and all iOS data remain retained.
 
-v22 completed its ten-minute automatic capture and returned to PMOS. Capture
-checksums and exact request ID validated. Owner reports the home screen appeared
-but tapping apps still does not open them. This is NOT a fully working touch UI.
+v23 keeps the verified kernel touch transport. A recorded opt-in patch to
+userland/src/inject.c adds per-event routing logs and `begonia_touch_direct=1`
+to bypass conversion of touch DOWN into wake-button events. `touch_lat=1` traces
+kernel producer and backboardd consumer timing. This is an experiment, not a
+confirmed fix. Defaults are unchanged without those boot arguments.
 
-Captured evidence: kernel posts type1/type2/type3 (down/move/release), backboardd
-reads real samples, and the digitizer reports modes0xff then0xfe (wake-only).
-No mode0x1 appears in the retained capture; the circular log may omit intermediate
-history. In inject.c, wake-only DOWN becomes a power-button wake event and its
-finger sequence is swallowed. This is a concrete next investigation path, not a
-proven complete root cause. Also distinguish app launch with frozen rendering
-from taps dropped before dispatch.
+v23: out/begonia-chain-xnu-forced/ios16-routing-v23.img, 49768448 bytes,
+SHA256 5b2911d90b72fbd756c8a5e8cab1f4694fc3b62f418e716d26910c33a7b6ce24.
+Support builder now compiles both init and libhakios.dylib from recorded patches.
 
-Next session: inspect HID/wake/display-state handling and collect per-event
-producer/consumer traces. Optional `--touch-debug` now adds existing touch_lat=1
-instrumentation to a future payload; it has NOT been boot-tested yet. Do not
-re-run long tests or claim the hardware driver alone completes UI interaction.
+Previous v22 capture validated down/move/release into the queue and backboardd
+reads, but owner could not open apps. Retained mode0xfe is wake-only; not enough
+log history to prove it never changed. Compare direct dispatch with normal wake
+routing and check whether applications launch while rendering stays frozen.
 
-v22 retained: out/begonia-chain-xnu-forced/ios16-touch-ui-v22.img,
-49766400 bytes; SHA256
-0105f617fa90110732a554be712dcf67f04edfc78787052e3402df0c4a7800af.
-Native capture: private/device/native-v22-mirror.bin and decoded log/JSON.
-Original-boot restoration report: private/device/pmos-overnight-restore.txt.
+Owner also asked for live serial to the laptop. USB console is a follow-up:
+MTU3 native USB gadget/PHY support is not implemented; hardware UART would need
+identified pads, an adapter and console setup. Current working log transport is
+the reserved-RAM capture retrieved after PMOS recovery. Do not claim live serial.
 
 ## Verified touch work
 

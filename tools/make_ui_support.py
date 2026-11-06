@@ -9,6 +9,7 @@ shutil.copytree(repo/'userland/root',dest,symlinks=True)
 # Build init from the recorded patch, rather than trusting a stale private binary.
 subprocess.run([sys.executable,str(root/'tools/prepare_userland.py')],check=True)
 shutil.copy2(repo/'userland/obj/init',dest/'sbin/init')
+shutil.copy2(repo/'userland/obj/libhakios.dylib',dest/'lib/libhakios.dylib')
 for label in ['com.apple.SpringBoard','com.apple.lsd']:
     p=dest/'LaunchDaemons'/(label+'.plist');job=plistlib.loads(p.read_bytes())
     job.setdefault('EnvironmentVariables',{})['OS_ACTIVITY_DT_MODE']='YES'
