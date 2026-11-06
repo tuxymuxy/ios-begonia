@@ -11,5 +11,9 @@
     "license": "GPL-2.0-or-later OR LGPL-3.0-or-later",
     "rust_toolchain": "1.98.1"
   },
-  "verification_scope": "Build and own-source shader validation only until a native PanVK ICD and kernel transport are verified on begonia"
+  "verification_scope": "Native G76 shader and IOKit user transport verified; native Vulkan and IOSurface/Metal UI integration remain under hardware qualification",
+  "mesa": {
+    "url": "https://gitlab.freedesktop.org/mesa/mesa",
+    "revision": "8e87a503ebd91408c88596d1b9eeb5f4c0b2088d"
+  }
 }

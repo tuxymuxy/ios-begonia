@@ -847,3 +847,32 @@ Installed via verifiedv45prefix, stagedv46hash, fullwrite/fsync/readback; data i
 180sec independent capture/recovery requested. Actual Vulkan result pending logs.
 Separate pinned Objective-C Metal frontend builds/signs with default process gate;
 not installed. Three deprecated SDK API warnings, no compile/link errors.
+
+Correction: v46 initially packaged with factory PMOS DTB, so /dev/mem refused
+reading the unreserved capture range. Repacked SAME payload with log-preserving
+DTB. Since request ID is unchanged and mirror already existed, recovery can skip
+re-execution. Retrieved capture still validates exact request/checksums; it shows
+M2V device opening thenSIGALRM20sec, no native Vulkan success. New packer guard
+rejects capture payloads without the reserved mirror DTB node.
+
+v47 uses fresh epoch/request, known log-preserving base, prior verified CPU boost,
+service test FIRST with stage logging, ICD dlopen markers,60sec device-init limit
+and separate20sec translation limit,500MiB RSS ceiling. Installed/readback verified:
+61118464bytes SHA256631fb1ab2bea9ca0a4e1804705af41c5226e8f43eaace025b99c06802d08d7be.
+No iOS data images changed. Own IOSurface cache/ownership test compiled separately;
+not staged or hardware-tested yet.
+
+v47 exact request/checksum capture validates. Updated strict service passes native
+WRITE_VALUE again: job1slot1IRQ2/MMU0/result1, userbec07601,0unfinished. Native ICD
+dlopen completes; bridge device creation remains unresolved. Full UI startup fills
+early log buffer and circular console hides later outcome; do not infer success
+from absent errors. Source inspection finds PanVK v7 advertises Vulkan1.0 while
+metal2vulkan requires1.2. No API version override applied.
+
+v48 isolates qualification from GUI jobs (only demo/notifyd/cfprefsd staged),
+retaining existing stored data. Runs private service check, authored original-page
+IOSurface/cache3cycle test, authored Vulkan1.0 capability/actualfill check, then
+M2V. Each bounded; no compositor enabled. Image60956672bytes SHA256
+6930ca1424555aac6841607381aa52f7f68f6b3f4cee5cfd4c5a7f00834bcbd2.
+Test build -Wall/-Wextra/-Werror passes. Recovery DTB and payload bounds checked.
+Owner revoked optional Claude remote-agent use (machine down); none launched.

@@ -1,18 +1,49 @@
 # Current state — 2026-11-06
 
-## Active v46 diagnostic
+## Active v48 diagnostic
 
-v46 installed and rebooted around21:52UTC Nov6;180sec capture/recovery.
-Phone not yet reachable at21:55UTC. Retrieve logs before another test.
-Image out/ios16-vulkan-v46.img,61118464bytes SHA256
-6e8c07016d5c2e6b2aaa133cb983acf99a353e7746224c6e56d4f31148d82c52.
-Payload out/native-vulkan-v46.payload;kernel out/kernel.begonia-vulkan-v46;
-support out/begonia-vulkan-support-v46/root.apfs. Updated service validation is
-in this kernel. Own Metal-shaped API->metal2vulkan->PanVK compute test20sec/500MiB
-runs first in rc.jobs; look for BEGONIA M2V USER. No UI acceleration enabled.
-PanVK native iOS build/sign and0strong unresolved symbol audit pass.
-Objective-C frontend out/metal-frontend-ios/HakiosMetal builds/signs separately,
-retains default process gate; not installed. Camera remains prohibited.
+v48 installed/reboot requested around22:09UTC Nov6;180sec automatic capture.
+Image out/ios16-vulkan-v48.img,60956672bytes SHA256
+6930ca1424555aac6841607381aa52f7f68f6b3f4cee5cfd4c5a7f00834bcbd2.
+Payload out/native-vulkan-v48.payload;kernel out/kernel.begonia-vulkan-v46;
+support out/begonia-vulkan-support-v48/root.apfs. Same verified log-preserving base.
+Isolated daemon set: demo/notifyd/cfprefsd, NO GUI intentionally during this test.
+Tests in order: private user BO,3cycle IOSurface WRITE_VALUE/readback, raw Vulkan1.0
+capability/fill, Metal bridge owncompute. Read exact-request/checksum capture next.
+Vulkan capability test never overrides API version. Source reveals PanVK v7
+advertises1.0; metal2vulkan floor1.2; real feature/extension compatibility needed.
+No Claude subagents allowed now; remote machine down. None launched.
+
+v47 capture exact request/checksums PASS. Updated GPU service/user WRITE_VALUE
+passesagain bec07601/IRQ2/MMU0,0unfinished. ICD dlopen COMPLETE; stall occurs later
+in bridge device creation. Later result obscured by full GUI logs, so not proven
+permanent hang. v48 removes competing GUI jobs for meaningful evidence.
+
+## Previous v47 diagnostic
+
+v47 installed/readback verified and rebooted around22:00UTC Nov6;180sec capture.
+Image out/ios16-vulkan-v47.img,61118464bytes SHA256
+631fb1ab2bea9ca0a4e1804705af41c5226e8f43eaace025b99c06802d08d7be.
+Payload out/native-vulkan-v47.payload;kernel out/kernel.begonia-vulkan-v46;
+support out/begonia-vulkan-support-v47a/root.apfs. CPU boost opt-in verified prior.
+Service test runs FIRST with stage messages, then own Metal-shaped API->native
+PanVK test. Device opening60sec limit, shader translation20sec, RSS500MiB.
+Look for ICD dlopen begin/complete; bridge device begin; BEGONIA GPU USER stages.
+Recovery base is the log-preserving full image SHA25627a6c51bf5581355ca6eab23025ccd902e2239c2f359943b7aed7ce58524c33a.
+
+v46 capture checksum/exact request validates, but device-open exceeded20sec and
+was killed bySIGALRM. No native Vulkan success. Original v46 package incorrectly
+used factory recovery DTB: mmap capture denied. Repacked same payload with reserved
+DTB; recovered original valid capture (same request can skip rerun by design).
+pack_chain now rejects capture payload without log-preserving DTB marker.
+Do not mislabel the repackage as a fresh kernel execution.
+
+PanVK native build/sign and0strong unresolved symbol audit pass. Separate frontend
+out/metal-frontend-ios/HakiosMetal builds/signs; default process gate, not installed.
+New authored tests/gpu_surface_test.m compiled but selector corrected afterward;
+Rebuilt corrected selector0x45 before v48 staging. It checks original IOSurface pages across3CPU/GPU cycles
+using WAIT_BO kernel cache invalidation, not EL0 DC traps. Not hardware-tested.
+Camera remains prohibited. Checkpoint dc43e4d pushed; newer diagnostics uncommitted.
 
 ## Phone and owner constraints
 

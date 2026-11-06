@@ -15,15 +15,19 @@ static int call(io_connect_t c,unsigned sel,void *arg,size_t size) {
 }
 int main(void) {
  setvbuf(stdout,NULL,_IOLBF,0);io_service_t service=0;
+ puts("BEGONIA GPU USER: matching service");
  for(unsigned i=0;i<20 && !service;i++) {
   service=IOServiceGetMatchingService(0,IOServiceMatching("HakiosMali"));if(!service)sleep(1);
  }
  if(!service) {puts("BEGONIA GPU USER: service absent");return 1;}
+ puts("BEGONIA GPU USER: opening service");
  io_connect_t client=0;kern_return_t result=IOServiceOpen(service,mach_task_self(),0,&client);IOObjectRelease(service);
  if(result) {printf("BEGONIA GPU USER: open failed %x\n",result);return 1;}
  struct parameter parameter={0};
+ puts("BEGONIA GPU USER: querying product");
  if(call(client,0x44,&parameter,sizeof parameter) || parameter.value!=0x7211)return 1;
  struct create buffer={.size=16384};if(call(client,0x42,&buffer,sizeof buffer))return 1;
+ puts("BEGONIA GPU USER: private BO created");
  mach_vm_address_t address=0;mach_vm_size_t length=16384;
  result=IOConnectMapMemory64(client,buffer.handle,mach_task_self(),&address,&length,kIOMapAnywhere);
  if(result || length<16384 || !address) {printf("BEGONIA GPU USER: map failed%x\n",result);return 1;}

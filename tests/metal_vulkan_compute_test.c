@@ -1,6 +1,7 @@
 /* Own-source Metal-shaped API -> metal2vulkan -> native PanVK -> G76 test. */
 #include "NativeMetalObjects.h"
 #include <mach/mach.h>
+#include <dlfcn.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -24,7 +25,7 @@ static void *monitor(void *unused) {
 static int fail(const char *stage) {fprintf(stderr,"BEGONIA M2V USER: %s failed: %s\n",stage,nmb_last_error());return 1;}
 #define CHECK(value,stage) do {if(!(value))return fail(stage);}while(0)
 int main(int argc,char **argv) {
- setvbuf(stdout,NULL,_IOLBF,0);alarm(20);pthread_t thread;
+ setvbuf(stdout,NULL,_IOLBF,0);alarm(60);pthread_t thread;
  if(pthread_create(&thread,NULL,monitor,NULL))return 125;
  setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
  setenv("MESA_LOG","file",1);setenv("MESA_LOG_LEVEL","debug",1);
@@ -36,13 +37,19 @@ int main(int argc,char **argv) {
  void *bytes=malloc((size_t)length);if(!bytes || fread(bytes,1,(size_t)length,file)!=(size_t)length)return 1;
  fclose(file);mkdir("/private/var/tmp/begonia-vk-cache",0700);
  puts("BEGONIA M2V USER: opening native Vulkan device");
+ puts("BEGONIA M2V USER: ICD dlopen begin");
+ void *icd=dlopen("/redwood/lib/libvulkan_panfrost.dylib",RTLD_NOW|RTLD_LOCAL);
+ if(!icd) {fprintf(stderr,"BEGONIA M2V USER: ICD dlopen failed: %s\n",dlerror());return 1;}
+ puts("BEGONIA M2V USER: ICD dlopen complete; bridge device begin");
  NmbDevice *device=nmb_device_open("/redwood/lib/libvulkan_panfrost.dylib","/private/var/tmp/begonia-vk-cache");CHECK(device,"device");
  char name[256]={0};nmb_device_name(device,name,sizeof name);printf("BEGONIA M2V USER: device=%s\n",name);
  CHECK(strstr(name,"G76"),"native G76 identity");
+ alarm(20); /* Translation itself retains its strict twenty-second bound. */
  NmbLibrary *library=nmb_library_new(device,bytes,(size_t)length,true);CHECK(library,"own AIR library");free(bytes);
  NmbFunction *function=nmb_function_new(library,"begonia_compute");CHECK(function,"own compute function");
  puts("BEGONIA M2V USER: compiling own compute pipeline");
  NmbComputePipeline *pipeline=nmb_compute_pipeline_new(device,function);CHECK(pipeline,"pipeline");
+ alarm(20);
  uint32_t initial[64];for(unsigned i=0;i<64;i++)initial[i]=0xdeadbeef;
  NmbBuffer *buffer=nmb_buffer_new(device,sizeof initial,0,initial);CHECK(buffer,"buffer");
  NmbQueue *queue=nmb_queue_new(device);CHECK(queue,"queue");

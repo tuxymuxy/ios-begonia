@@ -54,3 +54,18 @@ compiler warnings; no compile/link errors. PanVK uses Darwin weak imports for
 optional entry points and a build gate rejects strong unresolved dynamic lookups.
 The support image removes unused diagnostics and reduces spare APFS blocks to128;
 the payload builder now rejects overlap with the loader's dummy RAM disk.
+
+Authored native diagnostics can be rebuilt together:
+
+```
+python3 tools/build_gpu_tests_ios.py --sdk /absolute/path/to/iPhoneOS16.5.sdk
+```
+
+`gpu_surface_test` imports an original16KiB IOSurface and checks three CPU/GPU
+write/read cycles, with kernel WAIT_BO cache invalidation. `vulkan_device_test`
+requests Vulkan1.0, reports the real API/extensions, and checks a16KiB GPU fill.
+The diagnostic builder's `--isolated` option deliberately omits GUI startup jobs
+to preserve evidence; it is not a UI image. `--surface-test`/`--vulkan-test` add
+those binaries. Nothing here overrides Mesa's reported API version. PanVK v7
+currently reports1.0, below metal2vulkan's1.2 floor; native compatibility work is
+required before enabling the compositor.

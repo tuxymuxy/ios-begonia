@@ -38,6 +38,8 @@ def main():
     kernel=chain_image(a.probe.read_bytes(),original)
     if a.payload:
         payload=a.payload.read_bytes()
+        if b'begonia_watch=' in payload[0x48:0x2a8] and b'begonia-log-mirror@1b7e00000\0' not in parts[4]:
+            p.error('capture payload requires the log-preserving postmarketOS recovery DTB')
         kernel.extend(bytes((-len(kernel))%16))
         struct.pack_into('<Q',kernel,40,len(kernel));struct.pack_into('<Q',kernel,48,len(payload))
         kernel.extend(payload)
