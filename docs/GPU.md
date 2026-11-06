@@ -5,8 +5,10 @@ The user has photographed native SpringBoard; this does not establish GPU accele
 
 Current verified milestones: power/reset, identity and translated memory writes,
 64/64 native shader results, and a user-space IOKit client submitting a mapped
-write job successfully (v45). Metal-to-Vulkan runtime builds/signed for iOS16.5.
-Native PanVK source compiles; Darwin transport/link integration remains in progress.
+write job successfully (v45/v47), plus three original IOSurface CPU/GPU visibility
+cycles (v48). Metal-to-Vulkan and native PanVK build/sign for iOS16.5.
+Vulkan instance initialization failed due to the Darwin UUID length guard; the
+correct Mach-O identity fix passed a host test and is under phone test (v49).
 No GPU compositor has been enabled for SpringBoard. Sections below preserve the
 bring-up history; newer hardware results are recorded at the end.
 
@@ -221,3 +223,20 @@ Strict iOS16.5 build passes; ASan/UBSan host map/sync/surface-FD tests pass, inc
 compiles after Darwin runtime image metadata and explicit unsupported Linux perf
 session compatibility. Cross-link initially picked macOSlibdrm; now selecting
 separately built native iOS transport. Native Vulkan execution remains pending.
+
+### v48 shared-surface verification and Vulkan startup failure
+
+Exact capture validates request/checksums. GPU user job passes again. Authored
+16KiB IOSurface import test passes3/3cycles: original pages receive GPU words
+bec07610/11/12, CPU guards remaincafe0000/1/2. WAIT_BO performs real kernel cache
+maintenance; no EL0 cache trap or false coherence declaration used. This proves
+small surface visibility, not sustained full-frame rendering or lifetime safety
+under a compositor.
+
+Native ICD loads, but vkCreateInstance returnsVK_ERROR_INITIALIZATION_FAILED(-3),
+before GPU discovery. Mesa's common build-id code already parses actual LC_UUID
+and zero-pads it into the32byte cache identity; its shared minimum erroneously
+required20bytes though Mach-O UUID is16. Patch0005 fixes expected length for
+Darwin only; host test looks up its actual LC_UUID and checks minimum/padding.
+Native driver rebuilt/signed,0strong unresolved dynamic lookups. v49 tests it.
+PanVK v7 source advertises1.0; metal2vulkan requires1.2. No API override applied.

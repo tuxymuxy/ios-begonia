@@ -12,6 +12,11 @@
 FUNCTIONS(DECLARE)
 #undef DECLARE
 #define OK(x) do{VkResult r=(x);if(r!=VK_SUCCESS){printf("BEGONIA VULKAN: %s failed %d\n",#x,r);return 1;}}while(0)
+static VKAPI_ATTR VkBool32 VKAPI_CALL diagnostic(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+ VkDebugUtilsMessageTypeFlagsEXT type,const VkDebugUtilsMessengerCallbackDataEXT *message,void *context) {
+ (void)type;(void)context;
+ fprintf(stderr,"BEGONIA VULKAN: driver severity%x %s\n",severity,message->pMessage?message->pMessage:"no message");return VK_FALSE;
+}
 int main(void) {
  setvbuf(stdout,NULL,_IOLBF,0);alarm(60);setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
  puts("BEGONIA VULKAN: ICD dlopen begin");
@@ -22,7 +27,11 @@ int main(void) {
  if(!get)return 1;
  PFN_vkCreateInstance create=(PFN_vkCreateInstance)get(NULL,"vkCreateInstance");if(!create)return 1;
  VkApplicationInfo app={.sType=VK_STRUCTURE_TYPE_APPLICATION_INFO,.pApplicationName="begonia-native-check",.apiVersion=VK_API_VERSION_1_0};
- VkInstanceCreateInfo info={.sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,.pApplicationInfo=&app};VkInstance instance;
+ const char *debug_extension=VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+ VkDebugUtilsMessengerCreateInfoEXT debug={.sType=VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+ .messageSeverity=VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT|VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+ .messageType=VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT|VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT|VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,.pfnUserCallback=diagnostic};
+ VkInstanceCreateInfo info={.sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,.pNext=&debug,.pApplicationInfo=&app,.enabledExtensionCount=1,.ppEnabledExtensionNames=&debug_extension};VkInstance instance;
  puts("BEGONIA VULKAN: instance begin");OK(create(&info,NULL,&instance));
 #define LOAD(n) n=(PFN_##n)get(instance,#n);if(!n){printf("BEGONIA VULKAN: missing %s\n",#n);return 1;}
  FUNCTIONS(LOAD)

@@ -1,6 +1,22 @@
 # Current state — 2026-11-06
 
-## Active v48 diagnostic
+## Active v49 diagnostic
+
+v49 installed/reboot requested around22:15UTC Nov6;180sec automatic capture.
+Image out/ios16-vulkan-v49.img,60956672bytes SHA256
+5209cf47a5e87e58252a67fe6756b43adcbb8670f0f7a8c2fc2922ce2d016e45.
+Payload out/native-vulkan-v49.payload;kernel out/kernel.begonia-vulkan-v46;
+support out/begonia-vulkan-support-v49/root.apfs. Same isolated tests/no GUI.
+ICD rebuilt with0005DarwinMachOidentityfix; raw Vulkan includesdebugcallback.
+
+v48 exactcapture PASS. PrivateBO PASS; original16KiBIOSurface GPUwrite/CPUread
+3/3cycles PASS with cache invalidation and preservedguards. Raw Vulkan
+vkCreateInstance -3 beforephysicaldiscovery; M2Vsame-3. FoundcommonMesa bug:
+LC_UUID16bytes rejected by expectedSHA1length20; patchutil/build_id.hDarwin16only.
+RealMachOhosttest testslookup,length,paddingPASS. NativeICDrebuilt/signed/audited.
+NoAPIversionoverride and stillnoUIacceleration. v49results pending.
+
+## Previous v48 diagnostic
 
 v48 installed/reboot requested around22:09UTC Nov6;180sec automatic capture.
 Image out/ios16-vulkan-v48.img,60956672bytes SHA256

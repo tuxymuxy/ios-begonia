@@ -1,0 +1,18 @@
+diff --git a/src/util/build_id.h b/src/util/build_id.h
+index ec319da..b38ccc9 100644
+--- a/src/util/build_id.h
++++ b/src/util/build_id.h
+@@ -40,7 +40,13 @@ extern "C" {
+ 
+ #if HAVE_BUILD_ID
+ 
++/* Mach-O's linker supplies a 128-bit LC_UUID. ELF uses a SHA-1 note.
++ * Both are copied into the common cache identifier with zero padding. */
++#if DETECT_OS_APPLE
++#define BUILD_ID_EXPECTED_HASH_LENGTH 16 /* LC_UUID */
++#else
+ #define BUILD_ID_EXPECTED_HASH_LENGTH 20 /* sha1 */
++#endif
+ 
+ struct build_id_note;
+ 

@@ -179,7 +179,9 @@
     "translated_addressing_verified": true,
     "shader_execution_verified": true,
     "metal_acceleration_verified": false,
-    "user_client_write_job_verified": true
+    "user_client_write_job_verified": true,
+    "iosurface_original_page_write_verified": true,
+    "iosurface_cpu_gpu_cache_cycles_verified": 3
   },
   "native_cpu": {
     "xnu_cores_running": 1,

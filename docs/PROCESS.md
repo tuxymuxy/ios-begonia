@@ -876,3 +876,13 @@ M2V. Each bounded; no compositor enabled. Image60956672bytes SHA256
 6930ca1424555aac6841607381aa52f7f68f6b3f4cee5cfd4c5a7f00834bcbd2.
 Test build -Wall/-Wextra/-Werror passes. Recovery DTB and payload bounds checked.
 Owner revoked optional Claude remote-agent use (machine down); none launched.
+
+v48 capture exact request/checksums validate; quiet isolated output fits capture.
+Original IOSurface GPU writes/CPU visibility pass3/3cycles, private user job passes.
+Raw Vulkan instance creation fails-3; M2V reports the same-3. Identified shared
+Mesa build-id guard: Darwin LC_UUID16bytes rejected by ELF SHA1minimum20. Common
+util header patch0005 accepts16onDarwin,20ELF; actualUUIDhosttestpassespaddingcheck.
+Native ICD rebuilt/signed/audited. v49 same isolated tests, updated ICD and raw
+Vulkan pNext debugcallback. Image60956672bytes SHA256
+5209cf47a5e87e58252a67fe6756b43adcbb8670f0f7a8c2fc2922ce2d016e45;
+install/readback/reboot requested. No UI compositor enabled.
