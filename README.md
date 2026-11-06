@@ -11,11 +11,15 @@ Current status:
   SpringBoard run on the phone. Software-rendered frames reach the real panel.
 - First boot required a long attempt; the earlier 4/15-minute limits were too short.
 - Novatek NT36672A touch: firmware boot and physical finger events are verified
-  in XNU. App taps still fail; HID/wake routing is under investigation. See
+  in XNU. Owner opened Settings with touch on v24 after console release;
+  interaction remains slow/unreliable and v25 regressed. See
   [touch](docs/TOUCH.md).
 - Persistent data: a separate 16 GiB HFS+ image is prepared; the isolated write
   path mounted successfully, and an iOS-written marker survived reboot.
-- GPU: Linux G76 feature masks captured; native hardware acceleration is not ported.
+- CPU: native clock/rail readback and guarded 1.275 GHz A55 / 875 MHz CCI
+  correction passed a short boot test at unchanged voltages. SMP is unverified.
+- GPU: G76 Bifrost shader compilation works on the host; native power/reset
+  probe is prepared. Hardware acceleration is not ported.
 - Mu-Silicium menu and volume navigation worked, but OS handoff stalled; deferred.
 
 See [process log](docs/PROCESS.md), [storage](docs/STORAGE.md),

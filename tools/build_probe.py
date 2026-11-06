@@ -3,7 +3,7 @@
 import argparse, hashlib, json, pathlib, shutil, struct, subprocess
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--qemu', action='store_true', help='enable QEMU virt PL011; NEVER use this image on a phone')
+p.add_argument('--output-dir',type=pathlib.Path,help='separate diagnostic loader output');p.add_argument('--qemu', action='store_true', help='enable QEMU virt PL011; NEVER use this image on a phone')
 p.add_argument('--mirror-test',action='store_true',help='QEMU only: exercise the upper-RAM log mirror')
 p.add_argument('--chain', action='store_true', help='build chainloader probe; requires pack_chain.py and the original kernel')
 p.add_argument('--ramoops', action='store_true', help='write verified begonia ramoops console (hardware only)')
@@ -26,6 +26,7 @@ if not zig.exists():
 clang = shutil.which('clang')
 if not clang: p.error('clang is required')
 out = ROOT / 'out' / (('qemu' if a.qemu else 'begonia') + ('-chain' if a.chain else '') + ('-xnu' if a.xnu else '') + ('-forced' if a.force_xnu_test else '') + ('-board' if a.board else '') + ('-ufs' if a.ufs_read else ''))
+if a.output_dir:out=a.output_dir.resolve()
 out.mkdir(parents=True, exist_ok=True)
 flags = ['--target=aarch64-none-elf', '-ffreestanding', '-nostdlib', '-fno-builtin', '-fno-stack-protector', '-fno-pic', '-mgeneral-regs-only', '-mstrict-align', '-O2', '-Wall', '-Wextra', '-Werror']
 if a.qemu: flags += ['-DQEMU_UART=1']

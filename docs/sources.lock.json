@@ -43,5 +43,11 @@
     "url": "https://github.com/external-mirrors/mt6785-mainline-linux.git",
     "branch": "6.16",
     "commit": "203a993f86cdd71d2936ee0f301f733f5a15afcd"
+  },
+  "mesa-gpu-compiler": {
+    "url": "https://gitlab.freedesktop.org/mesa/mesa.git",
+    "tag": "mesa-26.2.6",
+    "commit": "8e87a503ebd91408c88596d1b9eeb5f4c0b2088d",
+    "patches": "pinned viva-gpu mesa/patches"
   }
 }

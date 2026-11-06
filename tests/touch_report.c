@@ -17,10 +17,10 @@ int main(void) {
  assert(!begonia_touch_decode(&s,p,65,1080,2340,event,0) && n==2);
  p[0]=(1<<3)|2;p[1]=0;p[3]&=15;
  assert(!begonia_touch_decode(&s,p,65,1080,2340,event,0));assert(n==3 && typ[2]==2 && xx[2]==0);
- before=s;memset(p,0xfd,65);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==-1);assert(!memcmp(&s,&before,sizeof s));
- memset(p,0x77,6);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==-1);
- memset(p,0,65);contact(p,0,1,1081,1);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==-1);
- memset(p,0,65);contact(p,0,1,10,10);contact(p,1,1,20,20);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==-1);
+ before=s;memset(p,0xfd,65);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==BEG_TOUCH_WATCHDOG);assert(!memcmp(&s,&before,sizeof s));
+ memset(p,0x77,6);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==BEG_TOUCH_RECOVERY);
+ memset(p,0,65);contact(p,0,1,1081,1);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==BEG_TOUCH_BOUNDS);
+ memset(p,0,65);contact(p,0,1,10,10);contact(p,1,1,20,20);assert(begonia_touch_decode(&s,p,65,1080,2340,event,0)==BEG_TOUCH_DUPLICATE);
  assert(begonia_touch_decode(&s,p,64,1080,2340,event,0)==-1);
  memset(p,0xff,65);assert(!begonia_touch_decode(&s,p,65,1080,2340,event,0));assert(n==5 && typ[3]==3 && typ[4]==3);
  puts("Touch report tests passed: multitouch, scaling, motion, lift, malformed/recovery frames");

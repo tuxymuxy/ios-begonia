@@ -154,7 +154,7 @@ static void emit(__unused void *ctx,uint32_t type,uint32_t finger,uint32_t x,uin
  if(events<=20)printf("BEGONIA TOUCH: type %u finger %u x %u y %u\n",type,finger,x,y);
 }
 static void touch_thread(__unused void *arg,__unused wait_result_t result) {
- uint8_t info[16],reset=0,report[65];unsigned polls=0,bad=0,errors=0;
+ uint8_t info[16],reset=0,report[65];unsigned polls=0,bad=0,errors=0,reasons[7]={0};
  spi=ml_io_map(0x11019000,0x1000);gpio=ml_io_map(0x10005000,0x1000);
  top=ml_io_map(0x10000000,0x1000);infra=ml_io_map(0x10001000,0x1000);
  if(!spi || !gpio || !top || !infra)goto stop;
@@ -187,7 +187,16 @@ static void touch_thread(__unused void *arg,__unused wait_result_t result) {
  for(;;) {
   if(read_address(0x21c00,report,sizeof(report))) {
    if(++errors>=5) {printf("BEGONIA TOUCH: repeated SPI failures; polling stopped\n");goto stop;}
-  } else {errors=0;if(begonia_touch_decode(&contacts,report,sizeof(report),xmax,ymax,emit,NULL))bad++;}
+  } else {
+   errors=0;
+   int reason=begonia_touch_decode(&contacts,report,sizeof(report),xmax,ymax,emit,NULL);
+   if(reason<0) {
+    bad++;unsigned index=(unsigned)-reason;
+    if(index<7 && ++reasons[index]<=3)
+     printf("BEGONIA TOUCH: reject %d prefix %02x %02x %02x %02x %02x %02x %02x %02x IRQ %u\n",
+      reason,report[0],report[1],report[2],report[3],report[4],report[5],report[6],report[7],(rd(gpio,0x200)>>1)&1);
+   }
+  }
   if(++polls%7500==0)printf("BEGONIA TOUCH: polls %u bad %u events %u\n",polls,bad,events);
   delay_for_interval(8,NSEC_PER_MSEC);
  }
@@ -196,6 +205,7 @@ stop:
  thread_terminate(current_thread());
 }
 void begonia_touch_init(void) {
+ extern void begonia_perf_init(void);begonia_perf_init();
  uint32_t on=0;thread_t thread;
  if(!PE_parse_boot_argn("begonia_touch",&on,sizeof(on)) || on!=1)return;
  if(kernel_thread_start(touch_thread,NULL,&thread)==KERN_SUCCESS)thread_deallocate(thread);

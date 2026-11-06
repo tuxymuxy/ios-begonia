@@ -137,3 +137,13 @@ watcher_entry:
 9: wfe
  b 9b
 #endif
+
+#ifdef XNU_BOOT
+/* PSCI64 context x0 carries the real high-RAM reset vector. Some firmware
+ * entry paths only reliably reach low RAM; test this without moving XNU. */
+.balign 64
+.global begonia_secondary_trampoline
+begonia_secondary_trampoline:
+ msr daifset, #0xf
+ br x0
+#endif

@@ -2,7 +2,7 @@
 """Build a private begonia support image with SpringBoard logging and test swipes."""
 from pathlib import Path
 import argparse,plistlib,shutil,subprocess,sys
-parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--physical-touch',action='store_true');args=parser.parse_args()
+parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--physical-touch',action='store_true');parser.add_argument('--quiet',action='store_true');args=parser.parse_args()
 root=Path(__file__).resolve().parents[1];repo=root/'upstream/hakios-xnu-kernel';out=root/'out/begonia-ui-support';dest=out/'root'
 if dest.exists():shutil.rmtree(dest)
 shutil.copytree(repo/'userland/root',dest,symlinks=True)
@@ -12,7 +12,9 @@ shutil.copy2(repo/'userland/obj/init',dest/'sbin/init')
 shutil.copy2(repo/'userland/obj/libhakios.dylib',dest/'lib/libhakios.dylib')
 for label in ['com.apple.SpringBoard','com.apple.lsd']:
     p=dest/'LaunchDaemons'/(label+'.plist');job=plistlib.loads(p.read_bytes())
-    job.setdefault('EnvironmentVariables',{})['OS_ACTIVITY_DT_MODE']='YES'
+
+    if args.quiet:job.get('EnvironmentVariables',{}).pop('OS_ACTIVITY_DT_MODE',None)
+    else:job.setdefault('EnvironmentVariables',{})['OS_ACTIVITY_DT_MODE']='YES'
     p.write_bytes(plistlib.dumps(job,fmt=plistlib.FMT_BINARY))
 p=dest/'LaunchDaemons/com.apple.backboardd.plist';job=plistlib.loads(p.read_bytes())
 job.get('EnvironmentVariables',{}).pop('OS_ACTIVITY_DT_MODE',None)

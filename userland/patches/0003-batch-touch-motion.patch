@@ -1,0 +1,51 @@
+--- a/userland/src/inject.c
++++ b/userland/src/inject.c
+@@ -908,7 +908,9 @@
+ 	static const int types[] = { HID_CLIENT_SIMPLE, HID_CLIENT_RATE_CONTROLLED };
+ 	IOHIDEventSystemClientRef client = NULL;
+ 	IOHIDServiceClientRef screen = NULL, buttons = NULL;
+-	struct hakios_touch t;
++	struct hakios_touch t, batch[128];
++	ssize_t received;
++	bool batch_touch = false;
+ 	unsigned count = 0, waking = 0;         /* waking: the fingers whose touch went into waking the display */
+ 	int device;
+ 
+@@ -920,6 +922,7 @@
+ 		if (sysctlbyname("kern.bootargs", arguments, &size, NULL, 0) == 0) {
+ 			touch_latency = strstr(arguments, "touch_lat=1") != NULL;
+ 			begonia_touch_direct = strstr(arguments, "begonia_touch_direct=1") != NULL;
++			batch_touch = strstr(arguments, "begonia_touch_batch=1") != NULL;
+ 		}
+ 		mach_timebase_info(&timebase);
+ 	}
+@@ -951,7 +954,20 @@
+ 		return NULL;
+ 	}
+ 
+-	while (read(device, &t, sizeof(t)) == (ssize_t)sizeof(t)) {
++	while ((received = read(device, batch, batch_touch ? sizeof(batch) : sizeof(batch[0]))) > 0) {
++		if (received % sizeof(batch[0]) != 0) {
++			say("hakios: input: incomplete sample batch\n");
++			break;
++		}
++		for (size_t sample = 0; sample < (size_t)received / sizeof(batch[0]); sample++) {
++		/* Preserve every DOWN/UP/button and cross-finger ordering boundary. */
++		while (sample + 1 < (size_t)received / sizeof(batch[0]) &&
++		    batch[sample].type == HAKIOS_TOUCH_MOVE &&
++		    batch[sample + 1].type == HAKIOS_TOUCH_MOVE &&
++		    batch[sample].finger == batch[sample + 1].finger) {
++			sample++;
++		}
++		t = batch[sample];
+ 		uint64_t read_at = mach_absolute_time();
+ 
+ 		if (touch_latency || count++ < 4) {
+@@ -987,6 +1003,7 @@
+ 				    micros(mach_absolute_time()));
+ 			}
+ 		}
++	}
+ 	}
+ 	say("hakios: input: %s: %s\n", HAKIOS_TOUCH_DEVICE, strerror(errno));
+ 	return NULL;

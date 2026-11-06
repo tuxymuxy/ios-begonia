@@ -1,0 +1,18 @@
+--- a/osfmk/arm64/psci_smp.c
++++ b/osfmk/arm64/psci_smp.c
+@@ -186,7 +186,14 @@
+ 	__builtin_arm_dsb(DSB_SY);
+ 
+ 	os_atomic_store(&psci_smp_cpu_stage[cpu], PSCI_SMP_CPU_ASKED, release);
+-	status = psci_call(PSCI_CPU_ON, phys_id, entry, 0);
++	uint64_t trampoline = 0;
++	PE_parse_boot_argn("begonia_smp_trampoline", &trampoline, sizeof(trampoline));
++	if (trampoline && (trampoline < 0x40080000 || trampoline >= 0x40180000 || (trampoline & 3))) {
++		printf("psci: invalid begonia trampoline; refusing CPU_ON\n");
++		return KERN_FAILURE;
++	}
++	printf("psci: cpu %d reset vector 0x%llx trampoline 0x%llx\n", cpu, entry, trampoline);
++	status = psci_call(PSCI_CPU_ON, phys_id, trampoline ? trampoline : entry, trampoline ? entry : 0);
+ 	if (status != 0) {
+ 		os_atomic_store(&psci_smp_cpu_stage[cpu], 0, release);
+ 		printf("psci: cpu %d (MPIDR 0x%x) was not started: the firmware answers %lld (%s)\n",

@@ -556,3 +556,120 @@ Owner asked to finish for the night. Saved capture locally and restored original
 Owner requested continuing after overnight stop. PMOS SSH reachable on original restored boot. Reviewed inject.c: in mode0xfe, DOWN is converted into a lock-button wake and its entire finger sequence suppressed. Added recorded userland patch0002 with opt-in begonia_touch_direct=1 to bypass that conversion and per-event route/mode/waking diagnostics when touch_lat=1 is enabled. Existing default behavior remains unchanged. Extended prepare_userland.py to compile/copy libhakios.dylib as well as init, and make_ui_support.py to stage the newly compiled library. Builds and Python syntax checks pass.
 
 Built/installed v23, 600-second test, physical touch enabled, no scripted gestures, direct routing and per-event traces enabled. Size49768448, SHA256 5b2911d90b72fbd756c8a5e8cab1f4694fc3b62f418e716d26910c33a7b6ce24. Original boot hash verified before installation; new prefix verified after. UI outcome pending. Owner also requested laptop-readable serial: native MTU3 USB console is not available yet; no hardware UART pinout/adapter has been established. Saved RAM capture remains the current log channel.
+
+### 2026-11-06: isolate text-console overlay
+
+Owner reports v23 still cannot open apps. Prepared v24 with the same support
+image, physical touch, direct routing and tracing, removing keep-console so the
+existing framebuffer release patch stops console drawing at first graphics.
+A visible kernel console is not itself a UIKit touch-receiving window, but
+rendering interference remains worth isolating. SSH timed out; installation
+awaits FASTBOOT. No boot partition changes during preparation.
+
+Owner confirmed FASTBOOT. Verified v24 SHA256 and original recovery backup, selected the exact private device target, and flashed boot successfully. Install output retained privately in native-v24-install.txt. Reboot follows; GUI touch result remains pending.
+
+### v24 result and pause
+
+Owner confirmed real Settings interaction after disabling the console overlay,
+then very low frame rate and navigation stalls. Clock later advanced. After
+automatic PMOS recovery, retrieved native-v24-mirror.bin and decoded log/JSON;
+checksums and exact payload request ID match. Producer/consumer touch traces
+persist, with one post-to-send interval around11.37 seconds. Preferences is
+running in retained evidence. No retained panic(cpu string. This establishes
+partial GUI touch success with severe latency, not a completed stable driver.
+Saved state and stopped at owner's request. No new flash or reboot.
+
+### Offline latency reduction, v25 prepared
+
+Deduplicated116 complete input timing records from v24. Median queue delay is
+8.521sec, median read-to-sent0.733ms and maximum1.468sec (includes logging).
+Added analyzer and recorded userland batch/MOVE-coalescing patch. Event boundaries
+are preserved; actual selection block compiled and passed ordering checks.
+Built init, library, quiet support image and ten-minute v25 with no text overlay
+or per-event tracing. No kernel or touch firmware changes. Image SHA256:
+6b95d055ea57e08400f67dbea8fa710ab0a0b187f280af939c4aafe06229387a.
+Phone unreachable on Wi-Fi/USB SSH and absent from FASTBOOT; no installation or
+reboot performed. Performance improvement remains unmeasured.
+
+SSH retry succeeded at confirmed IP. Installed v25 via verified v24-prefix precondition and v25 checksum; partition readback matched. Reboot requested for ten-minute test. No performance result yet.
+
+### v25 regression and CPU/GPU observation build
+
+Owner reports no touch in v25. Default batch optimization disabled behind new
+opt-in boot argument; restored non-quiet support. Exact v24 image preserved.
+Connection unavailable; no new test installed. Added MT6785-only read-only clock
+observation driver and native hook; kernel compile/link passes the standard build
+judge. Preserved original kernel path, built separate 90sec v26 observation
+candidate. Native execution awaits phone access. No clock/voltage/power writes,
+Mali MMIO access or Metal acceleration. Documented supervisor-core exclusion and
+incompatible Qualcomm/MT6781 power drivers. CPU/GPU work remains incomplete.
+
+### v25 capture retrieved; exact v24 restored
+
+Capture verified against payload request and checksums. Native touch firmware
+readbacks/startup pass, but22500 polls include13684 invalid decoder reports and
+58 events; later30000/21184/58 implies7500 consecutive invalid reports. The
+failure cannot be attributed solely to batching. Need invalid-packet reason and
+prefix logging. Read-only Linux baseline collected: A55 2GHz/A76 2.05GHz,
+GPU270MHz/CCI1.4GHz under Linux. Exact v24 boot restored with precondition v25
+checksum and verified readback. PMOS left running, no reboot.
+
+### v27 diagnostic running
+
+Specific decoder rejection reasons and rate-limited raw prefixes added; tests
+pass. Built kernel, installed with prior-v24 checksum guard and readback verify,
+booted120sec automatic capture. Includes read-only CPU/CCI/MFG PLL/SPM probe.
+Owner authorizes CPU clock correction; waiting native measurements before writes.
+No DVFS/GPU power changes yet. prepare_kernel repeatability fixed by moving
+perf build entry outside prior patch EOF context and using existing touch hook.
+
+### v27 evidence; v28 two-core test
+
+v27 capture validated:7500 polls/0invalid/387events, so persistent bad packets
+fromv25 not reproduced. CPU PLL paths~1.175GHz A55,1.085GHz A76,612MHz CCI;
+no rate/rail writes. Added explicit two-core payload topology0/0x200 preserving
+supervisor0x100 and default single-core behavior. Generated payload parsed and
+assertions pass. Installed/readback verifiedv28 and booted120sec capture. Pending
+scheduler evidence before claiming working SMP or performance gain.
+
+### v28 secondary did not join; v29 entry diagnostic
+
+Firmware accepted CPU2 but1of2 processors running. Added opt-in lowRAM br-x0
+trampoline carrying high reset target in PSCI context. ELF symbol/alignment and
+branch opcode verified at0x400801c0; loader QEMU entry regression passes.
+Separate loader/kernel outputs; installed/readback verified120sec v29. Pending
+capture, no SMP success claimed. PMIC readback groundwork targets actual MT6359,
+not Viva MT6366. No CPU clock or regulator writes made.
+
+### v30 voltage readback / v31 conservative clock correction test
+
+v29 low-entry still1of2, leavingSMPdisabled. v30 validates MT6359 identity5920,
+VPROC2 800mV and SRAM900mV. Captured stock table supports1275MHz CPU and875MHz
+CCI at those existing rails. Implemented guarded opt-in PCW changes, CCI first,
+CLKSQ parking,20us settle, unchanged voltage. Policy tests and kernelbuild pass.
+Installed/readback verified v31 and booted90sec capture; result pending.
+
+### v31 clock readback validated; v32 longer UI boot
+
+v31 capture checksum/request validated. A55 readback011884ec and CCI0221a762
+confirm1275MHz/875MHz; rails800/900mV unchanged. iOS file-root boot continues,
+7500touch polls/0invalid. This is a short stability observation, not a sustained
+performance or temperature result. Built and installed/readback verifiedv32,
+1800sec UI run with singlecore, direct physical touch, original nonbatched reads,
+console release and tested stock-clock correction. SHA256
+2808eb48475edd05143cc63a9f028b007aeb393b89568281060f93ff29dcb2d5.
+
+### G76 compiler and native probe groundwork during v32
+
+Installed host compiler dependencies, built pinned Mesa26.2.6 with XNU patches.
+G76 product72110000 compiles176-byte Bifrost fragment shader; architecture/ISA
+checks explicitly run despite NDEBUG. Added optional MT6785-specific GPU
+power/reset/ID probe with rail/domain/protection preconditions and bounded waits.
+Compiled kernel; no hardware GPU execution, jobs or acceleration verified.
+Left v32 UI run untouched. Extended Linux GPU capability-query option prepared.
+
+Prepared v33 GPU probe (not installed):49770496bytes,SHA256
+9db1d49948c5f9d63832e25bcfd21804091bf2d0146f45dd3137fc2b7fff43c2,
+90sec,oneCPU,noCPUboost. Final kernelbuild and repeated compiler check pass.
+New payload builder verifies probe symbols and limits GPU probes to<=180sec.
+No interruption to activev32. Native GPU probe remains untested.
