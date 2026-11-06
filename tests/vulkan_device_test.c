@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "native_gpu_diagnostics.h"
 #define FUNCTIONS(X) X(vkEnumeratePhysicalDevices) X(vkGetPhysicalDeviceProperties) X(vkGetPhysicalDeviceQueueFamilyProperties) X(vkEnumerateDeviceExtensionProperties) X(vkGetPhysicalDeviceMemoryProperties) X(vkCreateDevice) X(vkGetDeviceQueue) X(vkCreateBuffer) X(vkGetBufferMemoryRequirements) X(vkAllocateMemory) X(vkBindBufferMemory) X(vkMapMemory) X(vkCreateCommandPool) X(vkAllocateCommandBuffers) X(vkBeginCommandBuffer) X(vkCmdFillBuffer) X(vkEndCommandBuffer) X(vkCreateFence) X(vkQueueSubmit) X(vkWaitForFences) X(vkDeviceWaitIdle) X(vkDestroyFence) X(vkDestroyCommandPool) X(vkUnmapMemory) X(vkDestroyBuffer) X(vkFreeMemory) X(vkDestroyDevice) X(vkDestroyInstance)
 #define DECLARE(n) PFN_##n n;
 FUNCTIONS(DECLARE)
@@ -18,12 +19,13 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL diagnostic(VkDebugUtilsMessageSeverityFlag
  fprintf(stderr,"BEGONIA VULKAN: driver severity%x %s\n",severity,message->pMessage?message->pMessage:"no message");return VK_FALSE;
 }
 int main(void) {
- setvbuf(stdout,NULL,_IOLBF,0);alarm(60);setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
+ setvbuf(stdout,NULL,_IOLBF,0);native_gpu_install_crash_diagnostics();alarm(60);setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
  puts("BEGONIA VULKAN: ICD dlopen begin");
  void *icd=dlopen("/redwood/lib/libvulkan_panfrost.dylib",RTLD_NOW|RTLD_LOCAL);
  if(!icd){printf("BEGONIA VULKAN: dlopen error %s\n",dlerror());return 1;}
  puts("BEGONIA VULKAN: ICD dlopen complete");
  PFN_vkGetInstanceProcAddr get=(PFN_vkGetInstanceProcAddr)dlsym(icd,"vk_icdGetInstanceProcAddr");
+ native_gpu_record_icd((void *)get);
  if(!get)return 1;
  PFN_vkCreateInstance create=(PFN_vkCreateInstance)get(NULL,"vkCreateInstance");if(!create)return 1;
  VkApplicationInfo app={.sType=VK_STRUCTURE_TYPE_APPLICATION_INFO,.pApplicationName="begonia-native-check",.apiVersion=VK_API_VERSION_1_0};

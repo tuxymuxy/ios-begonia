@@ -1,0 +1,25 @@
+diff --git a/src/panfrost/vulkan/panvk_vX_physical_device.c b/src/panfrost/vulkan/panvk_vX_physical_device.c
+index 2816d7a..9f9a463 100644
+--- a/src/panfrost/vulkan/panvk_vX_physical_device.c
++++ b/src/panfrost/vulkan/panvk_vX_physical_device.c
+@@ -773,13 +773,19 @@ get_api_version()
+    if (PAN_ARCH >= 10)
+       return VK_MAKE_API_VERSION(0, 1, 4, VK_HEADER_VERSION);
+ 
++   if (PAN_ARCH >= 7)
++      return VK_MAKE_API_VERSION(0, 1, 2, VK_HEADER_VERSION);
++
+    return VK_MAKE_API_VERSION(0, 1, 0, VK_HEADER_VERSION);
+ }
+ 
+ static VkConformanceVersion
+ get_conformance_version()
+ {
+    if (PAN_ARCH == 10)
+       return (VkConformanceVersion){1, 4, 1, 2};
+ 
++   if (PAN_ARCH >= 7)
++      return (VkConformanceVersion){1, 2, 0, 0};
++
+    return (VkConformanceVersion){0, 0, 0, 0};
+ }

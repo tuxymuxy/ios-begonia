@@ -1,6 +1,44 @@
 # Current state — 2026-11-06
 
-## Active v49 diagnostic
+## Active v51 diagnostic
+
+v51 installed/reboot requested around 22:51 UTC Nov 6; 180 sec automatic capture.
+Image out/ios16-vulkan-v51.img, 60956672 bytes SHA256
+1b7c35c3d77b2aa8014db90041b53b31fcc802bb1e7b57584220eb99e07b02b2.
+Payload out/native-vulkan-v51.payload; kernel out/kernel.begonia-vulkan-v46;
+support out/begonia-vulkan-support-v51/root.apfs. Isolated tests: no GUI.
+ICD includes 0007 patch advertising Vulkan 1.2 for Bifrost v7 (G76).
+
+v51 exact capture PASS (request 0xcaeeff91, checksums valid).
+- Private BO WRITE_VALUE PASS (bec07601).
+- 3/3 IOSurface GPU-write / CPU-read cycles PASS with preserved guards.
+- Raw Vulkan PASS: device=Mali-G76 MC4, API=1.2.354, ID 72110000. Transfer command
+  submission and actual GPU memory fill verified: matches=4096/4096.
+- Metal2Vulkan bridge PASS! Bridge opened `device=Mali-G76 MC4`, successfully translated
+  Apple AIR compute shader into Vulkan compute pipeline, dispatched work on G76 hardware
+  via HakiosMali service (job6 slot1 irq=2 mmu=0 result=1), and verified readback:
+  matches=64/64 first=7 last=c4. Full end-to-end Metal compute established on hardware.
+
+## Previous v50 diagnostic
+
+v50 installed/reboot requested around 22:24 UTC Nov 6; 180 sec automatic capture.
+Image out/ios16-vulkan-v50.img, 60956672 bytes SHA256
+5a0e7733a471b051a20621f3c0dd8e690ea141ff443e65627d5222d5f34d9f30.
+Payload out/native-vulkan-v50.payload; kernel out/kernel.begonia-vulkan-v46;
+support out/begonia-vulkan-support-v50/root.apfs. Isolated tests: no GUI.
+ICD includes 0006 Darwin cache-ops disable to avoid EL0 illegal instruction.
+
+v50 exact capture PASS (request 0x53d323a9, checksums valid).
+- Private BO WRITE_VALUE PASS (bec07601).
+- 3/3 IOSurface GPU-write / CPU-read cycles PASS with preserved guards.
+- Raw Vulkan: SIGILL fixed! Instance creation, physical enumeration (Mali-G76 MC4,
+  API 1.0.354, ID 72110000), logical device creation, transfer command submission,
+  and actual GPU memory fill verified: matches=4096/4096 on hardware.
+- Metal2Vulkan bridge: device open fails with clean error:
+  `Unsupported { feature: VulkanVersion, needs: AnyOf([[ApiVersion(ApiVersion { major: 1, minor: 2 })]]) }`
+  PanVK v7 advertises 1.0.354; M2V requires 1.2 minimum.
+
+## Previous v49 diagnostic
 
 v49 installed/reboot requested around22:15UTC Nov6;180sec automatic capture.
 Image out/ios16-vulkan-v49.img,60956672bytes SHA256

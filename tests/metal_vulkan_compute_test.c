@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include "native_gpu_diagnostics.h"
 static atomic_bool finished;
 static void *monitor(void *unused) {
  (void)unused;
@@ -25,7 +26,7 @@ static void *monitor(void *unused) {
 static int fail(const char *stage) {fprintf(stderr,"BEGONIA M2V USER: %s failed: %s\n",stage,nmb_last_error());return 1;}
 #define CHECK(value,stage) do {if(!(value))return fail(stage);}while(0)
 int main(int argc,char **argv) {
- setvbuf(stdout,NULL,_IOLBF,0);alarm(60);pthread_t thread;
+ setvbuf(stdout,NULL,_IOLBF,0);native_gpu_install_crash_diagnostics();alarm(60);pthread_t thread;
  if(pthread_create(&thread,NULL,monitor,NULL))return 125;
  setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
  setenv("MESA_LOG","file",1);setenv("MESA_LOG_LEVEL","debug",1);
@@ -40,6 +41,7 @@ int main(int argc,char **argv) {
  puts("BEGONIA M2V USER: ICD dlopen begin");
  void *icd=dlopen("/redwood/lib/libvulkan_panfrost.dylib",RTLD_NOW|RTLD_LOCAL);
  if(!icd) {fprintf(stderr,"BEGONIA M2V USER: ICD dlopen failed: %s\n",dlerror());return 1;}
+ native_gpu_record_icd(dlsym(icd,"vk_icdGetInstanceProcAddr"));
  puts("BEGONIA M2V USER: ICD dlopen complete; bridge device begin");
  NmbDevice *device=nmb_device_open("/redwood/lib/libvulkan_panfrost.dylib","/private/var/tmp/begonia-vk-cache");CHECK(device,"device");
  char name[256]={0};nmb_device_name(device,name,sizeof name);printf("BEGONIA M2V USER: device=%s\n",name);

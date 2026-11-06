@@ -1,0 +1,16 @@
+diff --git a/src/util/cache_ops.h b/src/util/cache_ops.h
+index 3ea796f..7f6922c 100644
+--- a/src/util/cache_ops.h
++++ b/src/util/cache_ops.h
+@@ -41,7 +41,10 @@ util_has_cache_ops(void)
+    /* TODO: Port to MSVC if and when we have Windows hardware drivers that
+     * need cache flushing ops.
+     */
+-#if defined(_MSC_VER)
++#if defined(_MSC_VER) || defined(__APPLE__)
++   /* XNU does not grant these EL0 CTR/DC operations. The native transport
++    * uses uncached/write-combined private BOs; cached IOSurface maintenance
++    * is explicitly performed by the owning kernel client, not these helpers. */
+    return false;
+ #endif
+ 
