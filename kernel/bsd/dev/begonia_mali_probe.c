@@ -125,9 +125,9 @@ finish:
  return succeeded;
 }
 
-static void shader_compute_test(vm_offset_t gpu) {
- uint32_t enabled=0;
- if(!PE_parse_boot_argn("begonia_gpu_shader",&enabled,sizeof(enabled)) || enabled!=1)return;
+static int shader_compute_test(vm_offset_t gpu) {
+ uint32_t enabled=0;int succeeded=0;
+ if(!PE_parse_boot_argn("begonia_gpu_shader",&enabled,sizeof(enabled)) || enabled!=1)return 0;
 #if BEG_GPU_FIXTURE_PRESENT
  /* One own-source compute chain. Every GPU VA maps only private allocations;
   * no identity mapping, IOSurface, user pointer, or live display buffer. */
@@ -135,13 +135,13 @@ static void shader_compute_test(vm_offset_t gpu) {
  unsigned allocated=0,next=4;int armed=0;
  const unsigned count=BEG_GPU_FIXTURE_PAGES+4;
  unsigned index[4];
- if(PAGE_SIZE!=16384 || count>36 || begonia_gpu_indices(BEG_GPU_FIXTURE_JC&~4095ull,index))return;
+ if(PAGE_SIZE!=16384 || count>36 || begonia_gpu_indices(BEG_GPU_FIXTURE_JC&~4095ull,index))return 0;
  /* G76 features in Linux Panfrost v6.16: TLS hashing and IDVS group size.
   * Do not copy the G57-specific varying-algorithm workaround (bit29). */
  wr(gpu,0xf04,rd(gpu,0xf04)|(1u<<17));
  wr(gpu,0xf00,(rd(gpu,0xf00)&~(0x3fu<<16))|(15u<<16));
  wr(gpu,0x1a0,1);wr(gpu,0x190,1);wr(gpu,0x180,15);
- if(wait_bits(gpu,0x160,1,1) || wait_bits(gpu,0x150,1,1) || wait_bits(gpu,0x140,15,15))return;
+ if(wait_bits(gpu,0x160,1,1) || wait_bits(gpu,0x150,1,1) || wait_bits(gpu,0x140,15,15))return 0;
  for(unsigned i=0;i<count;i++) {
   if(kmem_alloc(kernel_map,&pages[i],PAGE_SIZE,KMA_KOBJECT|KMA_ZERO|KMA_DATA,VM_KERN_MEMORY_DIAG)!=KERN_SUCCESS)goto finish;
   allocated++;physical[i]=kvtophys(pages[i]);
@@ -186,17 +186,19 @@ static void shader_compute_test(vm_offset_t gpu) {
  printf("BEGONIA GPU: shader irq=%x slot=%x mmu=%x faultaddr=%x/%x exception=%x matches=%u/64 first=%x last=%x\n",
   rd(gpu,0x1000),rd(gpu,0x18a4),rd(gpu,0x241c),rd(gpu,0x2424),rd(gpu,0x2420),
   *(volatile uint32_t *)job,matches,*(volatile uint32_t *)output,((volatile uint32_t *)output)[63]);
+ succeeded=matches==64 && rd(gpu,0x1000)==2 && !rd(gpu,0x241c) && *(volatile uint32_t *)job==1;
 finish:
  if(armed) {
   wr(gpu,0x24,0xffffffff);wr(gpu,0x30,1);
   if(wait_bits(gpu,0x20,1u<<8,1u<<8)) {
-   printf("BEGONIA GPU: shader reset timeout; retaining %u pages until SoC reset\n",allocated);return;
+   printf("BEGONIA GPU: shader reset timeout; retaining %u pages until SoC reset\n",allocated);return 0;
   }
  }
  for(unsigned i=0;i<allocated;i++)kmem_free(kernel_map,pages[i],PAGE_SIZE);
 #else
  printf("BEGONIA GPU: own-source shader fixture absent; test skipped\n");
 #endif
+ return succeeded;
 }
 
 void begonia_mali_probe(uint32_t gpu_uv,uint32_t sram_uv,int rails_enabled) {
@@ -241,5 +243,8 @@ void begonia_mali_probe(uint32_t gpu_uv,uint32_t sram_uv,int rails_enabled) {
  if(wait_bits(gpu,0x20,1u<<8,1u<<8))return;
  wr(gpu,0x24,0xffffffff);
  printf("BEGONIA GPU: G76 soft reset complete; no Metal service published\n");
- if(write_value_test(gpu) && mapped_write_test(gpu))shader_compute_test(gpu);
+ if(write_value_test(gpu) && mapped_write_test(gpu) && shader_compute_test(gpu)) {
+  extern void begonia_mali_service_begin(vm_offset_t);
+  begonia_mali_service_begin(gpu);
+ }
 }

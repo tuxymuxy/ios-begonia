@@ -58,4 +58,16 @@ static inline uint64_t beg_gpu_vm_translate(const struct beg_gpu_vm *vm,uint64_t
  }
  return 0;
 }
+static inline int beg_gpu_vm_unmap(struct beg_gpu_vm *vm,uint64_t va) {
+ unsigned index[4];if(!vm || !vm->count || begonia_gpu_indices(va,index))return -1;
+ unsigned table=0;
+ for(unsigned level=0;level<3;level++) {
+  uint64_t entry=vm->tables[table].entries[index[level]];unsigned next=0;
+  if((entry&4095)!=3)return -1;
+  for(;next<vm->count;next++)if(vm->tables[next].physical==(entry&~4095ull))break;
+  if(next==vm->count)return -1;table=next;
+ }
+ uint64_t *entry=&vm->tables[table].entries[index[3]];if(!*entry)return -1;
+ *entry=0;return 0;
+}
 #endif

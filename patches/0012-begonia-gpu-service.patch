@@ -1,0 +1,50 @@
+diff --git a/iokit/Kernel/MiniIOSurface.h b/iokit/Kernel/MiniIOSurface.h
+--- a/iokit/Kernel/MiniIOSurface.h
++++ b/iokit/Kernel/MiniIOSurface.h
+@@ -117,6 +117,7 @@
+ 	task_t                          clientTask;     /* whose memory it is (not held: only compared) */
+ 	mach_vm_address_t               clientAddress;  /* ... and where it is there */
+ 	uint8_t *                       kpixels;        /* where the pixel memory starts in the kernel, either way */
++	uint64_t                        maliSeq;       /* G76 transport fence;0 means no GPU writer */
+ 	uint32_t                        drawn;          /* the GPU's last submission that names the pixels (0: none; hakios.gpu.cpp) */
+ 	struct minisurf_result          info;           /* addresses not filled in */
+ 	struct minisurf_plane           planes[MINISURF_MAX_PLANES];
+diff --git a/iokit/Kernel/hakios.stubs.cpp b/iokit/Kernel/hakios.stubs.cpp
+--- a/iokit/Kernel/hakios.stubs.cpp
++++ b/iokit/Kernel/hakios.stubs.cpp
+@@ -5,10 +5,11 @@
+ #include "MiniIOSurface.h"
+ 
+ #ifndef HAKIOS_ADRENO
++extern bool HakiosMaliDrawn(MiniIOSurface *, uint64_t);
+ /* the display's driver asks whether the GPU is done with a surface before it shows it: with no GPU nothing draws into one */
+ bool
+ MiniIOSurfaceDrawn(__unused MiniIOSurface * surface, __unused uint64_t milliseconds)
+ {
+-	return true;
++	return HakiosMaliDrawn(surface, milliseconds);
+ }
+ #endif
+diff --git a/bsd/conf/files b/bsd/conf/files
+--- a/bsd/conf/files
++++ b/bsd/conf/files
+@@ -6,6 +6,8 @@
+ # All rights reserved.  The CMU software License Agreement specifies
+ # the terms and conditions for use and redistribution.
+ #
++
++bsd/dev/begonia_mali_service.c standard
+ 
+ OPTIONS/config_macf			optional config_macf
+ OPTIONS/mach_assert			optional mach_assert
+diff --git a/iokit/conf/files b/iokit/conf/files
+--- a/iokit/conf/files
++++ b/iokit/conf/files
+@@ -81,6 +81,7 @@
+ iokit/Kernel/IOPlatformExpert.cpp			optional iokitcpp
+ iokit/Kernel/GenericARMPE.cpp			optional iokitcpp
+ iokit/Kernel/MiniIOSurface.cpp			optional iokitcpp
++iokit/Kernel/begonia.mali.cpp standard iokitcpp
+ iokit/Kernel/MiniIOMobileFramebuffer.cpp		optional iokitcpp
+ # HakiOS drivers: made by tools/hakios-config.py kernel from drivers/*/conf. Edit those, not these lines.
+ iokit/Kernel/hakios.stubs.cpp            optional iokitcpp

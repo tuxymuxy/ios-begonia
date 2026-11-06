@@ -1,0 +1,13 @@
+--- a/src/vulkan/util/vk_entrypoints_gen.py
++++ b/src/vulkan/util/vk_entrypoints_gen.py
+@@ -59,7 +59,9 @@
+  * On MSVC, weak symbols are not well supported, so we use the functionally
+  * equivalent /alternatename.
+  */
+-#if !defined(_MSC_VER) && defined(VK_ENTRY_USE_WEAK)
++#if defined(__APPLE__) && defined(VK_ENTRY_USE_WEAK)
++#define VK_ENTRY_WEAK __attribute__ ((weak_import))
++#elif !defined(_MSC_VER) && defined(VK_ENTRY_USE_WEAK)
+ #define VK_ENTRY_WEAK __attribute__ ((weak))
+ #else
+ #define VK_ENTRY_WEAK

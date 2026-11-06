@@ -19,6 +19,10 @@ int main(int argc,char **argv) { @autoreleasepool {
     id<MTLFunction> fn=[lib newFunctionWithName:@"begonia_compute"];
     NSData *bc=[(id)fn respondsToSelector:@selector(bitcodeData)]?[(id)fn performSelector:@selector(bitcodeData)]:nil;
     if(!bc.length)return 1;
+    const char *airPath=getenv("BEGONIA_OWN_AIR_OUTPUT");
+    if(airPath && ![bc writeToFile:@(airPath) options:NSDataWritingWithoutOverwriting error:&err]) {
+        fprintf(stderr,"AIR output: %s\n",err.description.UTF8String);return 1;
+    }
     vmg_air_input in={.bitcode=bc.bytes,.bitcode_size=bc.length};
     char *message=NULL;vmg_reflection refl;
     vmg_shader *sh=vmg_shader_create(dev,&in,&refl,&message);

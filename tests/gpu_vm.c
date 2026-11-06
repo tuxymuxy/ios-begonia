@@ -22,6 +22,9 @@ int main(void) {
  }
  assert(beg_gpu_vm_map(&vm,0,0x120000000ull)==-2);
  assert(beg_gpu_vm_translate(&vm,0)==0x110000000ull);
+ assert(!beg_gpu_vm_unmap(&vm,0));assert(!beg_gpu_vm_translate(&vm,0));
+ assert(beg_gpu_vm_unmap(&vm,0));assert(!beg_gpu_vm_map(&vm,0,0x120000000ull));
+ assert(beg_gpu_vm_translate(&vm,0)==0x120000000ull);
  assert(!beg_gpu_vm_translate(&vm,0x12345000));
  assert(beg_gpu_vm_map(&vm,1,0x110000000ull));
  assert(beg_gpu_vm_map(&vm,1ull<<48,0x110000000ull));

@@ -4,7 +4,7 @@
     "begoniain"
   ],
   "soc": "mt6785",
-  "status": "Native iOS16.5 SpringBoard observed; guarded CPU/CCI clock correction and G76 power/reset/identity-mode write job verified; touch stability under test, GPU acceleration unfinished",
+  "status": "Native iOS16.5 SpringBoard; guarded CPU/CCI correction and G76 translated compute verified; iOS GPU acceleration integration unfinished",
   "source": "MiCode/Xiaomi_Kernel_OpenSource@777ef5dfc3c93ae5e8f004bec4285230295760b5",
   "source_root": "arch/arm64/boot/dts/mediatek/",
   "gic": {
@@ -177,8 +177,9 @@
     "power_reset_verified": true,
     "identity_write_job_verified": true,
     "translated_addressing_verified": true,
-    "shader_execution_verified": false,
-    "metal_acceleration_verified": false
+    "shader_execution_verified": true,
+    "metal_acceleration_verified": false,
+    "user_client_write_job_verified": true
   },
   "native_cpu": {
     "xnu_cores_running": 1,

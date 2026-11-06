@@ -3,13 +3,12 @@
 Current home-screen output uses the existing software rendering/framebuffer path.
 The user has photographed native SpringBoard; this does not establish GPU acceleration.
 
-Current verified milestones: native power/reset, identity memory-write job, and
-VA48 four-level mapped write job. The own-source compute shader test is prepared
-as v44, awaiting hardware execution. The Mesa/Panfrost libraries and Metal bundle
-cross-build for iOS; bundle is arm64/platformIOS with verified ad-hoc signature.
-The kernel user-client and IOSurface synchronization still need integration;
-SpringBoard currently uses software rendering. Sections below record bring-up
-history, with newer results at the end.
+Current verified milestones: power/reset, identity and translated memory writes,
+64/64 native shader results, and a user-space IOKit client submitting a mapped
+write job successfully (v45). Metal-to-Vulkan runtime builds/signed for iOS16.5.
+Native PanVK source compiles; Darwin transport/link integration remains in progress.
+No GPU compositor has been enabled for SpringBoard. Sections below preserve the
+bring-up history; newer hardware results are recorded at the end.
 
 Begonia has Mali-G76 (Bifrost), on the captured Linux DT at `0x13040000`.
 Linux binds Panfrost. A live query returned product `0x7211`, shader mask
@@ -173,3 +172,52 @@ executes correctly on llvmpipe,64/64words; this is software validation only.
 GPU clock remains26MHz. Inherited MFGPLL0314c4ec is~270MHz, but stock lowest
 OPP42 specifies612.5mV while current readback is575mV. Do not select that PLL
 parent just because it is already running; no GPU voltage writes implemented.
+
+### v44 native shader execution verified; Vulkan path selected
+
+v42 exceeded1800sec recovery; owner still saw SpringBoard, manually entered
+FASTBOOT. Restored log-preserving PMOS boot. Neither mirror nor touch record was
+valid after recovery, so no v42 diagnostic result is claimed. Cause unresolved.
+v44 short90sec test installed/readback verified and auto-recovered. Exact payload
+request/checksums valid: identity and mapped jobs pass, own compute matches64/64,
+IRQ2,slot0,MMU0,faultaddr0/0,exception1,first7,lastc4. This proves G76 shader ALUs
+execute native work at26MHz. It does not establish SpringBoard acceleration.
+Touchrecord exactepoch validates9060polls,0bad,2081events,0SPI/rejections,
+maxread735.307us; no physical app interaction claim from this short boot.
+
+Owner revoked camera access; no further camera use. Requested S9+ reference
+danstronics/ios-s9plus-exynos and metal2vulkan. Inspected pinned S9 revision
+2d092398040f98685b0c5a07776df5e9f199b9dc. Its installed path is GLES; Metal/Vulkan
+is experimental with unfinished cache/lifetime integration. Pinned metal2vulkan
+720ef1ce9ae2a2068999a8675717418b9416283e; published WIP patch SHA256
+dba02debb819bdcc31e739b34ebbc59458681bbb3a70461c01b81d4170499612 applies.
+Installed official Rust1.98.1+iOS target locally under .tools/rust. Host release
+translator built. Own compute AIR translates to SPIR-V and passes spirv-val for
+synthetic Vulkan1.2 minimum profile:0.2014sec,peak process-group RSS9338880bytes,
+20sec/500MiB limits enforced. Not a measured G76 Vulkan capability profile.
+Separate iOS16.5 Metal-to-Vulkan runtime built/signed with -Dwarnings; fixed host
+linker SDK isolation rather than suppressing warnings. No runtime installed.
+Native PanVK ICD/kernel transport/IOSurface cache ordering remain to integrate.
+
+### v45 user-to-GPU submission verified
+
+Implemented MT6785/G76 backend plus pinned S9 HakiosMali IOKit transport adapted
+to existing MiniIOSurface (no Exynos power code). Native v45 capture validates
+exact request/checksums: own shader64/64, real service publication, user client
+opened, GET_PARAM7211, CREATE_BO16KiB, IOKit map, SUBMIT WRITE_VALUE, WAIT,
+CPU readbec07601, unmap/free/close. Kerneljob1 IRQ2/MMU0,0unfinished onclose.
+Image49782784bytes SHA2568aeebde7feb1f8ea14048fd9e1cc4e27888d1f1c4a0190051cfebc99cbe0d1b8.
+New loader QEMU handoff check and phone180sec auto-recovery pass. USB network
+briefly disconnected during retrieval; Wi-Fi reconnected and validated capture.
+Backend is a shared-VA/synchronous prototype with GPU reset between jobs, not
+per-process isolation or asynchronous scheduling. No UI acceleration claim.
+Later source adds BO/chain preflight, submission failure propagation and executable
+buffer16MiB guard; those later changes require the next kernel build/test.
+
+Native Vulkan DRM/POSIX/sync/surface transport stages from pinned S9 reference,
+modern48byte submit packed to kernel40byte ABI with reserved/context validation.
+Strict iOS16.5 build passes; ASan/UBSan host map/sync/surface-FD tests pass, including
+160exports/1000earlycloses and invalid/recycleddescriptor rejection. PanVK source
+compiles after Darwin runtime image metadata and explicit unsupported Linux perf
+session compatibility. Cross-link initially picked macOSlibdrm; now selecting
+separately built native iOS transport. Native Vulkan execution remains pending.

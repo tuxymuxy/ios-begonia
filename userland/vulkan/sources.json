@@ -1,0 +1,15 @@
+{
+  "s9_reference": {
+    "url": "https://github.com/danstronics/ios-s9plus-exynos",
+    "revision": "2d092398040f98685b0c5a07776df5e9f199b9dc",
+    "patch": "metal-wip/metal2vulkan-wip.patch",
+    "patch_sha256": "dba02debb819bdcc31e739b34ebbc59458681bbb3a70461c01b81d4170499612"
+  },
+  "metal2vulkan": {
+    "url": "https://github.com/steelbrain/metal2vulkan",
+    "revision": "720ef1ce9ae2a2068999a8675717418b9416283e",
+    "license": "GPL-2.0-or-later OR LGPL-3.0-or-later",
+    "rust_toolchain": "1.98.1"
+  },
+  "verification_scope": "Build and own-source shader validation only until a native PanVK ICD and kernel transport are verified on begonia"
+}

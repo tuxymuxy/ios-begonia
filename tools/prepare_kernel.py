@@ -21,10 +21,13 @@ for name in ['0008-framebuffer-release-text-console.patch','0011-begonia-low-sec
     if subprocess.run([*cmd,'--reverse','--check',str(patch)],capture_output=True).returncode!=0:
         subprocess.run([*cmd,'--check',str(patch)],check=True)
         subprocess.run([*cmd,str(patch)],check=True)
-for name in ['begonia_gpu_mmu.h','begonia_touch_diagnostics.h','begonia_gpu_job.h','begonia_mali_probe.c','begonia_clock_policy.h','begonia_perf.c','begonia_ufs.c','begonia_touch.c','begonia_touch_report.h','begonia_extent_policy.h']:
+for name in ['begonia_gpu_vm.h','begonia_mali_service.c','begonia_gpu_mmu.h','begonia_touch_diagnostics.h','begonia_gpu_job.h','begonia_mali_probe.c','begonia_clock_policy.h','begonia_perf.c','begonia_ufs.c','begonia_touch.c','begonia_touch_report.h','begonia_extent_policy.h']:
     shutil.copyfile(root/'kernel/bsd/dev'/name,tree/'bsd/dev'/name)
 shutil.copyfile(args.gpu_fixture or root/'kernel/bsd/dev/begonia_gpu_fixture_data.h',tree/'bsd/dev/begonia_gpu_fixture_data.h')
 shutil.copyfile(root/'devices/begonia/configs/begonia_defconfig',repo/'configs/begonia_defconfig')
 print('Begonia root driver and build profile copied. Build with make begonia_defconfig, then make kernel.')
 
 shutil.copyfile(tree/'bsd/dev/hakios.input.c',repo/'drivers/input/hakios.input.c')
+subprocess.run(['python3',str(root/'tools/prepare_gpu_service.py')],check=True)
+shutil.copyfile(tree/'iokit/Kernel/MiniIOSurface.h',repo/'xnu/files/iokit/Kernel/MiniIOSurface.h')
+shutil.copyfile(tree/'iokit/Kernel/hakios.stubs.cpp',repo/'drivers/core/hakios.stubs.cpp')

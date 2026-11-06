@@ -1,0 +1,14 @@
+--- a/src/vulkan/meson.build
++++ b/src/vulkan/meson.build
+@@ -4,6 +4,11 @@
+ vk_api_xml = files('registry/vk.xml')
+ 
+ vulkan_icd_link_args = []
++if host_machine.system() == 'darwin'
++  # Optional weak-import entry points must bind to NULL when absent. The
++  # consumer build audits against unresolved strong dynamic-lookups.
++  vulkan_icd_link_args += ['-Wl,-undefined,dynamic_lookup']
++endif
+ vulkan_icd_link_depends = []
+ 
+ if with_platform_android
