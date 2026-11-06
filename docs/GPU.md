@@ -163,3 +163,13 @@ which16.5Metal.tbd exports. arm64/platformIOS/min16.0; ad-hoc signature verifies
 No bundle installed and no accelerator published to SpringBoard. Signed16.5
 test_vgpu and vmprobe tools also built for eventual service/Metal discovery tests.
 Host frontend regression passes4/4resources/fences and3/3ownshader compilation.
+
+### Service groundwork while v42 runs
+
+Added reusable owned-table mapper (begonia_gpu_vm.h): disjoint VA48 regions,
+PA40 checks, duplicate-map refusal, bounded allocation and failure paths tested.
+It is not integrated into a user client yet. Own AIR->NIR compute translation
+executes correctly on llvmpipe,64/64words; this is software validation only.
+GPU clock remains26MHz. Inherited MFGPLL0314c4ec is~270MHz, but stock lowest
+OPP42 specifies612.5mV while current readback is575mV. Do not select that PLL
+parent just because it is already running; no GPU voltage writes implemented.

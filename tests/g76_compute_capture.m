@@ -4,9 +4,12 @@
 #include "vmg.h"
 #include <stdio.h>
 #include <stdlib.h>
-int main(void) { @autoreleasepool {
+#include <string.h>
+int main(int argc,char **argv) { @autoreleasepool {
+    const char *which=argc>1?argv[1]:"panfrost";
+    bool software=!strcmp(which,"llvmpipe");
     char error[256]={0};
-    vmg_device *dev=vmg_device_create("panfrost",error,sizeof error);
+    vmg_device *dev=vmg_device_create(which,error,sizeof error);
     if(!dev) {fprintf(stderr,"%s\n",error);return 1;}
     id<MTLDevice> system=MTLCreateSystemDefaultDevice();
     NSError *err=nil;
@@ -32,9 +35,9 @@ int main(void) { @autoreleasepool {
     vmg_cmd_dispatch(dev,&dispatch);
     vmg_fence *fence=NULL;vmg_flush(dev,&fence);
     if(fence) {if(!vmg_fence_wait(dev,fence,1000000000))return 1;vmg_fence_release(dev,fence);}
-    // A mock must leave the output untouched: capture success is not execution success.
-    for(unsigned i=0;i<64;i++)if(((uint32_t *)contents)[i]!=0xdeadbeef)return 1;
-    puts("Own compute descriptors captured; mock did not execute shader");
+    // Software execution checks the translation. The mock must leave output untouched.
+    for(unsigned i=0;i<64;i++)if(((uint32_t *)contents)[i]!=(software?i*3+7:0xdeadbeef))return 1;
+    puts(software?"Software compute matches64/64 (not native GPU)":"Own compute descriptors captured; mock did not execute shader");
     vmg_resource_release(dev,output);vmg_compute_pipeline_release(dev,pipe);
     vmg_shader_release(dev,sh);vmg_device_destroy(dev);return 0;
 } }
