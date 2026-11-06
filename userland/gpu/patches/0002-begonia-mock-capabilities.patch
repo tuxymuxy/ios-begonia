@@ -1,0 +1,33 @@
+--- a/vgpu/vgpu_mock.c
++++ b/vgpu/vgpu_mock.c
+@@ -80,14 +80,30 @@
+     free(c);
+ }
+ 
++#include "begonia_gpu_params.h"
++static bool begonia_profile(void)
++{
++    const char *profile=getenv("VGPU_MOCK_PROFILE");
++    return profile && !strcmp(profile,"begonia");
++}
++
+ static uint64_t mock_gpu_id(void)
+ {
++    if(begonia_profile())return 0x7211;
+     const char *env = getenv("VGPU_MOCK_GPU_ID");
+     return env ? strtoul(env, NULL, 16) : 0x9091;
+ }
+ 
+ static int get_param(struct vgpu_get_param *p)
+ {
++    if(begonia_profile()) {
++        if(begonia_gpu_mock_param(p->param,&p->value))return -EINVAL;
++        if(p->param==VGPU_PARAM_SYSTEM_TIMESTAMP) {
++            uint64_t ns=clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
++            p->value=(ns/1000)*13+((ns%1000)*13)/1000;
++        }
++        return 0;
++    }
+     switch (p->param) {
+     case VGPU_PARAM_GPU_PROD_ID: p->value = mock_gpu_id(); break;
+     case VGPU_PARAM_GPU_REVISION: p->value = 0; break;

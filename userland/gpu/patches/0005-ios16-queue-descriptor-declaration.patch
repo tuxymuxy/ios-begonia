@@ -1,0 +1,17 @@
+--- a/driver/metal/VMPrivate.h
++++ b/driver/metal/VMPrivate.h
+@@ -7,6 +7,14 @@
+ #import <Metal/Metal.h>
+ #import <IOSurface/IOSurfaceRef.h>
+ #include "../vmg.h"
++#import <TargetConditionals.h>
++
++// Exported by iOS16.5 Metal.tbd, but only forward-declared in its SDK.
++#if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MAX_ALLOWED <= 160500
++@interface MTLCommandQueueDescriptor : NSObject <NSCopying>
++@property NSUInteger maxCommandBufferCount;
++@end
++#endif
+ 
+ // macOS-only Metal pixel formats (marked unavailable in the iOS SDK), by value.
+ enum { VM_PF_D24S8 = 255, VM_PF_X24S8 = 262 };

@@ -1,0 +1,42 @@
+--- a/ios/build.sh
++++ b/ios/build.sh
+@@ -10,12 +10,12 @@
+ HERE="$(cd "$(dirname "$0")" && pwd)"
+ GPU="$(cd "$HERE/.." && pwd)"
+ OUT="$HERE/out"
+-SDK="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || true)"
++SDK="${VIVA_IOS_SDK:-$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || true)}"
+ if [ -z "$SDK" ]; then
+   echo "ios/build.sh: no iOS SDK (install Xcode and run xcode-select -s /Applications/Xcode.app)" >&2
+   exit 1
+ fi
+-CC="${VIVA_CCACHE:+$VIVA_CCACHE }$(xcrun --sdk iphoneos -f clang)"
++CC="${VIVA_CCACHE:+$VIVA_CCACHE }$(xcrun -f clang)"
+ TARGET="-target arm64-apple-ios16.0 -isysroot $SDK"
+ mkdir -p "$OUT"
+ 
+@@ -23,11 +23,14 @@
+   # Host tools (mesa_clc, vtn_bindgen2, panfrost_compile) come from the macOS build.
+   [ -x "$GPU/mesa/build-macos/src/panfrost/clc/panfrost_compile" ] || bash "$GPU/mesa/build.sh" macos-nosmoke
+   sed -e "s|@IOS_SDK@|$SDK|" -e "s|@GPU@|$GPU|" "$GPU/mesa/cross/ios-arm64.ini" > "$OUT/ios-arm64.ini.new"
++  if [ -n "${VIVA_IOS_SDK:-}" ]; then
++    sed -i '' "s/\'xcrun\', \'--sdk\', \'iphoneos\', /\'xcrun\', /g" "$OUT/ios-arm64.ini.new"
++  fi
+   if [ -n "${VIVA_CCACHE:-}" ]; then
+     # meson does not wrap cross compilers with ccache, and ccache cannot see through xcrun: use the real compiler
+     # paths (the SDK comes from -isysroot in the flags).
+     local clang clangxx
+-    clang="$(xcrun --sdk iphoneos -f clang)"; clangxx="$(xcrun --sdk iphoneos -f clang++)"
++    clang="$(xcrun -f clang)"; clangxx="$(xcrun -f clang++)"
+     sed -i '' -e "s|^c = .*|c = ['$VIVA_CCACHE', '$clang']|" -e "s|^cpp = .*|cpp = ['$VIVA_CCACHE', '$clangxx']|" \
+         -e "s|^objc = .*|objc = ['$VIVA_CCACHE', '$clang']|" "$OUT/ios-arm64.ini.new"
+   fi
+@@ -51,7 +54,7 @@
+   for l in "${libs[@]}"; do echo "  $(ar t "$l" 2>/dev/null | wc -l | tr -d ' ') ${l#$B/}"; done
+   # The bundle links the individual archives (ld64 is order independent); the combined one is for the artifact.
+   printf '%s\n' "${libs[@]}" > "$OUT/lib/mesa-libs.txt"
+-  xcrun --sdk iphoneos libtool -static -o "$OUT/lib/libmesa_viva.a" "${libs[@]}"
++  xcrun libtool -static -o "$OUT/lib/libmesa_viva.a" "${libs[@]}"
+   echo "libmesa_viva.a: $(ar t "$OUT/lib/libmesa_viva.a" | wc -l) members"
+   nm "$OUT/lib/libmesa_viva.a" 2>/dev/null | grep -c " T _nir_builder_init_simple_shader" || echo "nir_builder_init_simple_shader MISSING"
+ }

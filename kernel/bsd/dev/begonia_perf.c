@@ -129,6 +129,7 @@ begonia_perf_init(void)
         if(pw && !pmic_read(pw,8,&hw) && hw==0x5920 &&
            !pmic_read(pw,0x15a6,&gv) && !pmic_read(pw,0x15a8,&ge) &&
            !pmic_read(pw,0x14a6,&sv) && !pmic_read(pw,0x14a8,&se)) {
+            printf("BEGONIA GPU: rail readbacks core=%04x/%04x SRAM=%04x/%04x\n",gv,ge,sv,se);
             begonia_mali_probe(400000+(gv&127)*6250,400000+(sv&127)*6250,(ge&se&1)!=0);
         } else printf("BEGONIA GPU: PMIC identity/readback failed; untouched\n");
     }

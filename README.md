@@ -18,8 +18,9 @@ Current status:
   path mounted successfully, and an iOS-written marker survived reboot.
 - CPU: native clock/rail readback and guarded 1.275 GHz A55 / 875 MHz CCI
   correction passed a short boot test at unchanged voltages. SMP is unverified.
-- GPU: G76 Bifrost shader compilation works on the host; native power/reset
-  probe is prepared. Hardware acceleration is not ported.
+- GPU: native G76 power/reset and a private-page write jobs pass, including
+  four-level address translation. G76 shader compilation and the iOS Metal
+  bundle build work. Native shader execution and iOS acceleration remain under development.
 - Mu-Silicium menu and volume navigation worked, but OS handoff stalled; deferred.
 
 See [process log](docs/PROCESS.md), [storage](docs/STORAGE.md),

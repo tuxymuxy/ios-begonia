@@ -68,3 +68,19 @@ register block merely to inspect it.
 Source references: the pinned MT6785 Linux tree in `docs/sources.lock.json`,
 `novatek-nvt-ts-core.c`, `novatek-nvt-ts-spi.c`, `spi-mt65xx.c`, and the MT6785
 clock/pin definitions. No Linux source or firmware blob is embedded in the port.
+
+## SPI scheduling and fixed diagnostic record
+
+v37 wraps only each bounded FIFO transaction in saved/restored IRQ disable.
+XNU delay() can otherwise block when CPU idle latency is unknown, including
+microdelays while chip-select remains held. The outer8ms poll still sleeps.
+Camera at~152sec confirms SpringBoard. Circular capture omitted all periodic
+summaries, so this alone did not establish report stability.
+
+v40 adds a104byte fixed record in the last4KiB of the existing reserved2MiB mirror
+(at1b7fff000); it cannot overlap the maximum mirror data. Version/sequence/FNV
+checksum and bootepoch guard reject torn/stale records. Reader is
+`tools/read_touch_diagnostics.c` (aarch64Linux, /dev/mem). First native record
+validated:14674polls,0bad,0SPIerrors,stage2active,max read1177.153us,0events when
+no finger used. All rejection categories0. This crosses the earlier~12938poll
+failure point, but physical app interaction still needs confirmation.

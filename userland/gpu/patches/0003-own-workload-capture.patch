@@ -1,0 +1,62 @@
+--- a/vgpu/vgpu_mock.c
++++ b/vgpu/vgpu_mock.c
+@@ -168,6 +168,41 @@
+     }
+ }
+ 
++// Opt-in capture of our own test workloads, before fake completion. The caller
++// creates a private directory. Imported buffers are refused to avoid collecting
++// unrelated IOSurface/user memory. A failed capture rejects the mock submission.
++static int capture_submit(MockConn *c,const struct vgpu_submit *a)
++{
++    const char *dir=getenv("VGPU_MOCK_CAPTURE_DIR");
++    if(!dir || !*dir)return 0;
++    if(a->bo_handle_count>256)return -E2BIG;
++    const uint32_t *handles=(const uint32_t *)(uintptr_t)a->bo_handles;
++    size_t total=0;
++    for(uint32_t i=0;i<a->bo_handle_count;i++) {
++        MockBO *b=bo(c,handles[i]);
++        if(!b || b->imported || b->size>32*1024*1024)return -EINVAL;
++        total+=b->size;if(total>64*1024*1024)return -E2BIG;
++    }
++    char path[4096];
++    int n=snprintf(path,sizeof path,"%s/submit-%llu.json",dir,(unsigned long long)(c->seq+1));
++    if(n<0 || (size_t)n>=sizeof path)return -ENAMETOOLONG;
++    FILE *meta=fopen(path,"wx");if(!meta)return -errno;
++    fprintf(meta,"{\"jc\":%llu,\"requirements\":%u,\"bos\":[",(unsigned long long)a->jc,a->requirements);
++    int result=0;
++    for(uint32_t i=0;i<a->bo_handle_count;i++) {
++        MockBO *b=bo(c,handles[i]);
++        n=snprintf(path,sizeof path,"%s/submit-%llu-bo-%u.bin",dir,(unsigned long long)(c->seq+1),handles[i]);
++        if(n<0 || (size_t)n>=sizeof path) {result=-ENAMETOOLONG;break;}
++        FILE *f=fopen(path,"wbx");if(!f) {result=-errno;break;}
++        if(fwrite(b->addr,1,b->size,f)!=b->size)result=-EIO;
++        if(fclose(f))result=-EIO;
++        if(result)break;
++        fprintf(meta,"%s{\"handle\":%u,\"va\":%llu,\"size\":%zu}",i?",":"",handles[i],(unsigned long long)b->va,b->size);
++    }
++    fprintf(meta,"]}\n");if(fclose(meta))result=-EIO;
++    return result;
++}
++
+ // One SUBMIT (lock held): checked, handed to the hook, done at once (out_sync signalled, completion page moved on).
+ static int mock_submit(MockConn *c, struct vgpu_submit *a)
+ {
+@@ -180,6 +215,8 @@
+         fprintf(stderr, "vgpu mock: submit jc 0x%llx %s, %u BOs, %u in-syncs, out-sync %u\n",
+                 (unsigned long long)a->jc, (a->requirements & VGPU_JD_REQ_FS) ? "fragment" : "vertex/compute",
+                 a->bo_handle_count, a->in_sync_count, a->out_sync);
++    int capture_result=capture_submit(c,a);
++    if(capture_result)return capture_result;
+     if (g_hook) {
+         pthread_mutex_unlock(&c->lock);
+         g_hook(a, g_hookCtx);
+@@ -209,7 +246,7 @@
+         v->major = VGPU_UAPI_MAJOR; v->minor = VGPU_UAPI_MINOR;
+         v->gpu_id = (uint32_t)(mock_gpu_id() << 16);
+         v->page_size = (uint32_t)getpagesize();
+-        snprintf(v->name, sizeof v->name, "Mali-G57 MC2 (mock)");
++        snprintf(v->name, sizeof v->name, "%s",begonia_profile()?"Mali-G76 MC4 (mock)":"Mali-G57 MC2 (mock)");
+         break;
+     }
+     case VGPU_SEL_GET_PARAM: ret = get_param(arg); break;

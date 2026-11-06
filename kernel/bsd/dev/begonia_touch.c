@@ -8,18 +8,42 @@
 #include <kern/thread.h>
 #include <libkern/libkern.h>
 #include <mach/mach_time.h>
+#include <machine/machine_routines.h>
 #include <pexpert/pexpert.h>
 #include <pexpert/device_tree.h>
 #include <sys/systm.h>
 #include <sys/hakios.input.h>
 #include <vm/vm_kern.h>
 #include "begonia_touch_report.h"
+#include "begonia_touch_diagnostics.h"
 extern kern_return_t thread_terminate(thread_t thread);
 extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
 static vm_offset_t spi, gpio, top, infra;
 static struct begonia_touch_state contacts;
 static uint16_t xmax, ymax;
 static uint32_t events;
+static vm_offset_t diagnostics;
+static uint64_t diagnostics_epoch;
+static uint32_t diagnostics_sequence;
+static void diagnostics_write(uint32_t stage,uint32_t polls,uint32_t bad,
+ const unsigned reasons[7],const uint8_t report[65],uint64_t longest) {
+ if(!diagnostics)return;
+ struct begonia_touch_diagnostics d={0};uint32_t words[sizeof(d)/4];
+ d.magic=BEG_TOUCH_DIAG_MAGIC;d.epoch=diagnostics_epoch;d.version=1;
+ d.sequence=(diagnostics_sequence+=2);d.stage=stage;d.polls=polls;d.bad=bad;d.events=events;
+ for(unsigned i=0;i<7;i++)d.reasons[i]=reasons[i];
+ for(unsigned i=0;i<8;i++)d.last[i]=report[i];
+ d.irq=gpio?(*(volatile uint32_t *)(gpio+0x200)>>1)&1:0;
+ d.longest_read_ns=longest;d.last_time=mach_absolute_time();d.bytes=sizeof(d);
+ d.checksum=begonia_touch_diag_checksum(&d);memcpy(words,&d,sizeof(d));
+ volatile uint32_t *out=(volatile uint32_t *)diagnostics;
+ out[offsetof(struct begonia_touch_diagnostics,sequence)/4]=d.sequence-1;
+ __asm__ volatile("dsb sy":::"memory");
+ for(unsigned i=0;i<sizeof(d)/4;i++)if(i!=offsetof(struct begonia_touch_diagnostics,sequence)/4)out[i]=words[i];
+ __asm__ volatile("dsb sy":::"memory");
+ out[offsetof(struct begonia_touch_diagnostics,sequence)/4]=d.sequence;
+ __asm__ volatile("dsb sy":::"memory");
+}
 #define CMD 0x18
 #define STATUS 0x1c
 #define CMD_BASE ((1u<<12)|(1u<<13))
@@ -29,7 +53,7 @@ static void wr(vm_offset_t b,unsigned o,uint32_t v) {
 }
 /* Pause keeps CS asserted across FIFO segments; the final segment finishes
  * and releases CS. Every segment has a bounded 20ms timeout. */
-static int transfer(const uint8_t *tx,uint8_t *rx,unsigned len) {
+static int transfer_atomic(const uint8_t *tx,uint8_t *rx,unsigned len) {
  unsigned done=0;int paused=0;
  if (!len || len>256) return -1;
  wr(spi,CMD,CMD_BASE|4);delay(1);wr(spi,CMD,CMD_BASE);
@@ -64,6 +88,15 @@ static int transfer(const uint8_t *tx,uint8_t *rx,unsigned len) {
  }
  delay(5); /* ensure a quiet CS interval before the next Novatek command */
  return paused?-1:0;
+}
+/* delay() is allowed to block when IRQs/preemption are enabled. Sleeping
+ * between paused FIFO segments leaves CS held and can break controller framing.
+ * Keep only one bounded wire transaction atomic; the outer 8ms poll still sleeps. */
+static int transfer(const uint8_t *tx,uint8_t *rx,unsigned len) {
+ boolean_t interrupts=ml_set_interrupts_enabled(FALSE);
+ int error=transfer_atomic(tx,rx,len);
+ ml_set_interrupts_enabled(interrupts);
+ return error;
 }
 static int set_page(uint32_t address) {
  uint8_t tx[3]={0xff,address>>15,address>>7};return transfer(tx,NULL,3);
@@ -154,7 +187,10 @@ static void emit(__unused void *ctx,uint32_t type,uint32_t finger,uint32_t x,uin
  if(events<=20)printf("BEGONIA TOUCH: type %u finger %u x %u y %u\n",type,finger,x,y);
 }
 static void touch_thread(__unused void *arg,__unused wait_result_t result) {
- uint8_t info[16],reset=0,report[65];unsigned polls=0,bad=0,errors=0,reasons[7]={0};
+ uint8_t info[16]={0},reset=0,report[65]={0};unsigned polls=0,bad=0,errors=0,reasons[7]={0};uint64_t longest_read=0;
+ diagnostics=ml_io_map(BEG_TOUCH_DIAG_PHYS,0x1000);
+ PE_parse_boot_argn("epoch",&diagnostics_epoch,sizeof(diagnostics_epoch));
+ diagnostics_write(1,0,0,reasons,report,0);
  spi=ml_io_map(0x11019000,0x1000);gpio=ml_io_map(0x10005000,0x1000);
  top=ml_io_map(0x10000000,0x1000);infra=ml_io_map(0x10001000,0x1000);
  if(!spi || !gpio || !top || !infra)goto stop;
@@ -185,7 +221,12 @@ static void touch_thread(__unused void *arg,__unused wait_result_t result) {
  }
  printf("BEGONIA TOUCH: polling enabled (8ms); feeding hakios-touch\n");
  for(;;) {
-  if(read_address(0x21c00,report,sizeof(report))) {
+  uint64_t began=mach_absolute_time(),elapsed;
+  int transfer_error=read_address(0x21c00,report,sizeof(report));
+  absolutetime_to_nanoseconds(mach_absolute_time()-began,&elapsed);
+  if(elapsed>longest_read)longest_read=elapsed;
+  if(transfer_error) {
+   reasons[0]++;
    if(++errors>=5) {printf("BEGONIA TOUCH: repeated SPI failures; polling stopped\n");goto stop;}
   } else {
    errors=0;
@@ -197,11 +238,17 @@ static void touch_thread(__unused void *arg,__unused wait_result_t result) {
       reason,report[0],report[1],report[2],report[3],report[4],report[5],report[6],report[7],(rd(gpio,0x200)>>1)&1);
    }
   }
-  if(++polls%7500==0)printf("BEGONIA TOUCH: polls %u bad %u events %u\n",polls,bad,events);
+  diagnostics_write(2,++polls,bad,reasons,report,longest_read);
+  if(polls%7500==0) {
+   printf("BEGONIA TOUCH: polls %u bad %u events %u max_read_us %llu\n",polls,bad,events,longest_read/1000);
+   printf("BEGONIA TOUCH: reasons invalid=%u recovery=%u watchdog=%u id=%u duplicate=%u bounds=%u last=%02x%02x%02x%02x%02x%02x\n",
+    reasons[1],reasons[2],reasons[3],reasons[4],reasons[5],reasons[6],report[0],report[1],report[2],report[3],report[4],report[5]);
+  }
   delay_for_interval(8,NSEC_PER_MSEC);
  }
 stop:
  {uint8_t empty[65]={0};if(xmax && ymax)(void)begonia_touch_decode(&contacts,empty,sizeof(empty),xmax,ymax,emit,NULL);}
+ diagnostics_write(3,polls,bad,reasons,report,longest_read);
  thread_terminate(current_thread());
 }
 void begonia_touch_init(void) {

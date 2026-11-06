@@ -673,3 +673,101 @@ Prepared v33 GPU probe (not installed):49770496bytes,SHA256
 90sec,oneCPU,noCPUboost. Final kernelbuild and repeated compiler check pass.
 New payload builder verifies probe symbols and limits GPU probes to<=180sec.
 No interruption to activev32. Native GPU probe remains untested.
+
+### G76 frontend guard and isolated GPU job source
+
+Found direct Valhall ISA selection guarded only by panfrost. Added recorded
+G76 Mesa/NIR guard and real product query; host frontend builds. G76 mock
+resource/fence4/4 passes; own MSL vertex/fragment/compute AIR translation and
+compilation3/3 passes with direct ISA requested+strict (G76 correctly bypasses).
+Mock capabilities are synthetic; no phone GPU execution implied.
+
+Added optional native WRITE_VALUE test confined to one kernel page; managedRAM
+bounds and mirror exclusion checks pass. It remains disabled for first power/
+reset probe. GPU reset required before freeing page; retain on reset failure.
+Caught/fixed missing cache-maintenance declaration during build. Active v32 UI
+run left untouched throughout. Native GPU work still awaits first execution.
+
+### v32 capture and v36 persistent rejection summary
+
+v32 completed and capturevalidated. Retained last summary180000polls/
+167062invalid/4events; no retained reject-prefix lines (early detail overwritten).
+Added persistent reason counters and latest6reportbytes to periodic summaries.
+Builtv36, installed over verifiedv32, readback verified, rebooted180sec. GPU power/
+reset probe enabled; GPU job selftest disabled; noCPUboost. Image49772544bytes,
+SHA256f2f90253033e47131d54e96a0cdaf8c78a4009e1461908acc9a1652bce4600df.
+Owner offers camera; permitted single AVFoundation snapshot works (noaudio).
+Observed upside-down Applelogo/boot text during shorttest. Stills stay private.
+
+### v36 evidence / v37 transaction atomicity
+
+v36 capture validates: GPU575/850mV enabled but inherited bus protection partial;
+probe safely refused power-up. No touch poll summary retained. XNU delay()
+may block/yield when CPU idle latency unknown, including FIFO microdelays while
+CS remains held. Wrapped bounded SPI transaction in saved/restored IRQ disable;
+outer8ms poll still sleeps. Added maxread timing and persistent reject counts.
+v37 installed/readback verified300sec; camera at~152sec shows actual SpringBoard.
+Capture pending. v38 GPU source normalizes owned protection bits when domains
+off, bounded ACK checks; native power/reset remains unverified.
+
+### Full measured G76 MC4 mock profile
+
+Linux45params/43supported captured privately. Added generic capability header
+and opt-in begonia mockprofile; no G57 thread/texture/slot limits borrowed.
+Rebuilt transport/relinked tests: Mali-G76 MC4 resources/fence4/4, own AIR shader
+stages3/3 compile. Hardware GPU execution still untested.
+
+### Native G76 identity job and reliable touch record
+
+v38 validated native G76 power/reset; v39 validated WRITE_VALUE:irq2,slot0,MMU0,
+wordbec07601. No shader execution/Metal acceleration claimed. v40 fixed touch
+record validates epoch/checksum:14674polls,0bad/transporterrors,stage2active,
+maxread1177.153us and no finger events. Atomic SPI appears stable through earlier
+failure point; further physical interaction required. Preparing separately gated
+VA48 four-level mapped job; host MMU format checks pass, native pending.
+
+### v40 fixed record verified; v41 mapped job running
+
+v40 log+record validated.14674polls/0bad/0SPIerrors/0every reject,stage2active,
+maxread1177.153us,0events without finger. Record104bytes outside text ring,
+sequence/checksum/epoch guards. v41 installed over verifiedv40/readbackverified,
+90sec mapped job (VA48/PA40 fourlevels). Image49774592bytes SHA256
+cd4275451510ab00fdc2746592e2c421217efbb3953da4a0fb6b931d854c2d2f.
+Capture pending. No native shader/Metal acceleration claimed.
+
+### v41 native translated job verified (2026-11-06)
+
+Exact payload request and reserved log checksums validated. Both identity and
+VA48 four-level mapped WRITE_VALUE completed: IRQ2,slot0,MMU0; mapped fault
+address0/0 and canarybec07601. No shader ALU execution or Metal acceleration
+claimed. v41 touch record:9091polls,0bad,0SPIerrors,maxread740us,0finger events.
+v42 longer UI test combines atomic SPI with previously tested guarded A55/CCI
+clock correction; GPU probes disabled. Physical interaction remains to verify.
+
+### Own-source native shader test prepared
+
+Host generated a single G76 compute chain from our Metal sample:64uint outputs,
+expected i*3+7. Mock output remains deadbeef, proving no fake execution claim.
+Capture has5BOs/8private16KiB pages. Fixture validator rejects fragment/noncompute,
+chained jobs, altered output, unaligned/overlapping maps;7tests pass. Native test
+maps only these private pages through four-level tables, reads back all64words,
+resets before free and retains allocations on reset timeout. Uses G76 TLS hash
+bit17 and IDVS group15 per pinned Linux Panfrost features, not G57 VAR_ALGORITHM.
+Reference: https://github.com/torvalds/linux/blob/v6.16/drivers/gpu/drm/panfrost/panfrost_gpu.c
+
+v43 prepared but not installed; v44 includes G76 shader configuration. v44image
+49776640bytes,SHA25643b724f9c3c96e1a3be437ee3cd7f836b03c88b5c5aadbd6d709a4f33e920374,
+out/begonia-chain-xnu-forced/ios16-gpu-shader-v44.img. Kernel
+out/kernel.begonia-gpu-shader-v44;payload out/native-gpu-shader-v44.payload.
+Native shader execution remains pending. v42 camera confirms SpringBoard.
+Existing Theos16.5SDK found; explicit-SDK build override added and iOS Mesa
+cross-build started. No system Xcode selection changed.
+
+### iOS rendering libraries and Metal bundle build verified
+
+Explicit installed Theos16.5SDK builds Mesa978targets/825archive members and
+VivaMTLDriver.bundle. Fixed missing SDK declaration for MTLCommandQueueDescriptor,
+which16.5Metal.tbd exports. arm64/platformIOS/min16.0; ad-hoc signature verifies.
+No bundle installed and no accelerator published to SpringBoard. Signed16.5
+test_vgpu and vmprobe tools also built for eventual service/Metal discovery tests.
+Host frontend regression passes4/4resources/fences and3/3ownshader compilation.
