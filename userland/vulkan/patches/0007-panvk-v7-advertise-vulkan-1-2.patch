@@ -1,44 +1,24 @@
-diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
-index e7e64e2..e5388ca 100644
---- a/src/panfrost/vulkan/panvk_physical_device.c
-+++ b/src/panfrost/vulkan/panvk_physical_device.c
-@@ -461,7 +461,6 @@ panvk_physical_device_init(struct panvk_physical_device *device,
- 
-    switch (arch) {
-    case 6:
--   case 7:
-    case 14:
-       if (!os_get_option("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER")) {
-          result = panvk_errorf(instance, VK_ERROR_INCOMPATIBLE_DRIVER,
-@@ -472,6 +471,7 @@ panvk_physical_device_init(struct panvk_physical_device *device,
-       }
-       break;
- 
-+   case 7:
-    case 10:
-    case 12:
-    case 13:
 diff --git a/src/panfrost/vulkan/panvk_vX_physical_device.c b/src/panfrost/vulkan/panvk_vX_physical_device.c
-index 9281c39..2043f21 100644
+index 9281c39..df7ea08 100644
 --- a/src/panfrost/vulkan/panvk_vX_physical_device.c
 +++ b/src/panfrost/vulkan/panvk_vX_physical_device.c
-@@ -773,6 +773,9 @@ get_api_version()
+@@ -12,6 +12,7 @@
+ #include <sys/sysmacros.h>
+ 
+ #include "git_sha1.h"
++#include "util/os_misc.h"
+ 
+ #include "vk_android.h"
+ #include "vk_device.h"
+@@ -773,6 +774,11 @@ get_api_version()
     if (PAN_ARCH >= 10)
        return VK_MAKE_API_VERSION(0, 1, 4, VK_HEADER_VERSION);
  
-+   if (PAN_ARCH >= 7)
++   /* This is an experimental compatibility profile for the Metal bridge,
++    * not a Vulkan conformance result. The v7 opt-in remains mandatory. */
++   if (PAN_ARCH == 7 && os_get_option("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER"))
 +      return VK_MAKE_API_VERSION(0, 1, 2, VK_HEADER_VERSION);
 +
     return VK_MAKE_API_VERSION(0, 1, 0, VK_HEADER_VERSION);
- }
- 
-@@ -782,6 +785,9 @@ get_conformance_version()
-    if (PAN_ARCH == 10)
-       return (VkConformanceVersion){1, 4, 1, 2};
- 
-+   if (PAN_ARCH >= 7)
-+      return (VkConformanceVersion){1, 2, 0, 0};
-+
-    return (VkConformanceVersion){0, 0, 0, 0};
  }
  

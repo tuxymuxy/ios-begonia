@@ -1,9 +1,42 @@
 # Current state — 2026-11-07
 
-## Active v59 Hardware-Accelerated UI Qualification — PASSED (100% Assertion-Free)
+## Active v62 GLES compositor test
+
+v62 installed/readback verified around07:35UTC Nov7,180sec capture. Image
+`out/ios16-gles-v62-ui.img`,53983232bytes SHA256
+`da459beac114d6c0141398c40d9ff5e08041543899cb6f28dc0243c9e03b93be`.
+Payload `out/native-gles-v62-ui.payload`, support `out/begonia-gles-support-v62/root.apfs`.
+Opt-in gl=1, Metal disabled, native1080x2340 canvas, per-frame timing enabled.
+Look for actual CoreAnimation context renderer, GPU submissions after helper,
+`tl: v` draw times, presented frames, exceptions and exact capture request.
+No accelerated compositor result until capture validates.
+
+v61 isolated GLES test passed on actual hardware: Mali-G76 (Panfrost), clear
+RGBA64/128/191/255, authored triangle RGBA0/255/0/255, GL error0. Thirteen GPU
+jobs complete, no MMU faults/unfinished. Exact request/checksum validated.
+Image `out/ios16-gles-v61.img`,53510144bytes SHA256
+`7fd72d64f659d131a7321350f596dd57b6703e720386e1d1443307e5ece9bccd`.
+Native Mesa25.0.7/EAGL adapter built/signed separately from Metal/Vulkan.
+
+## v60 matched-canvas test
+
+v60 installed/readback verified around07:24UTC Nov7. Phone recovered, exact-request/checksum capture validated.
+Image `out/ios16-ui-v60-panel.img`,61401088bytes SHA256
+`f45476e60ecfcaae90185b7735ab96df5e22e8d92f997630d582dab7c58a5b38`.
+Payload `out/native-ui-v60-panel.payload`. Same v59 kernel, support, loader,
+recovery DTB and ramdisk verified byte-for-byte. Only `fbwidth=1080 fbheight=2340`
+and a fresh epoch differ. This targets v59's 1125x2436 to1080x2340 scaling work.
+Capture180sec confirms backboardd allocated1080x2340 surfaces and swaps use
+matching geometry. No usable FPS windows in retained log; no speedup claim.
+mediaserverd hit missing Metal selector `newFunctionWithName:constantValues:pipelineLibrary:error:`
+and aborted; broad metal=2 is not daily-driver quality. Neither Metal3 nor SMP
+enabled. Strict future frontend build no longer enables MPS stubs by default;
+PanVK v7 experimental opt-in restored, fake conformance removed, rebuild passed.
+
+## v59 hardware Metal test cases passed; compositor remained software
 
 v59 installed/reboot requested around 05:00 UTC Nov 7; 180 sec automatic capture.
-Image `out/ios16-ui-v59.img`, 63584256 bytes, SHA256:
+Image `out/ios16-ui-v59.img`, 61401088 bytes, SHA256:
 `96a237214a329cfffa7fa823ee5583872fe49d632144897d85a3a85f38778f66`.
 Payload `out/native-ui-v59.payload`; support `out/begonia-ui-support-v59/root.apfs`.
 Full iOS 16.5 UI stack + 40 background daemons + HakiosMetal.bundle active for SpringBoard.
@@ -24,13 +57,13 @@ v59 exact capture PASS (262,132 console bytes, 1,310,719 early bytes):
   - MTLRenderCommandEncoder: clear render pass executed on hardware G76 3D core (`job15 slot0 irq=1 mmu=0 result=1`).
   - Readback verification: `BGRA=191/128/64/255` matching `MTLClearColor(0.25, 0.5, 0.75, 1.0)`.
   - Status: `BEGONIA METAL FRONTEND: ALL PASS`.
-- **SpringBoard & System Daemons Stability (100% PASS):**
-  - `grep -in "failed assertion"` returns ZERO matches across entire boot!
+- **Limited SpringBoard startup observation:**
+  - No matching assertion in the retained capture. Missing MPS functions/pipelines were stubbed and their dispatches skipped; this is not functional MPS validation.
   - `SpringBoard[8]` registered `HakiosMetalDevice` and opened `/redwood/lib/libvulkan_panfrost.dylib`.
   - `chronod[106]` registered `HakiosMetalDevice` and opened Mali-G76 MC4.
-  - `backboardd[13]` cleanly isolated on software/GLES path (`metal=2`), rendering smoothly without stalling.
-  - `MiniIOMobileFramebuffer` sustained ~5-6 fps frame presentation across the full 180s session without driver stalls or display errors.
-  - `SpringBoard` never exited, never crashed, and remained healthy for the entire session.
+  - `backboardd[13]` explicitly excluded from Metal (`metal=2`); compositor acceleration not established.
+  - Retained frame windows peaked at5.90FPS; median driver time67.705ms/frame. These are presentation samples, not a sustained benchmark. Canvas1125x2436 scaled to1080x2340.
+  - The capture confirms SpringBoard startup; does not establish reliable multitasking, complete shader support or end-to-end interactive performance.
 
 ## Previous v58 diagnostic
 

@@ -3,8 +3,11 @@
 from pathlib import Path
 import argparse,shutil,subprocess
 root=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--sdk',type=Path,required=True);a=p.parse_args()
-ref=root/'upstream/ios-s9plus-exynos';out=root/'out/metal-frontend-ios';out.mkdir(exist_ok=True)
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--sdk',type=Path,required=True)
+p.add_argument('--output-dir',type=Path,default=root/'out/metal-frontend-ios')
+p.add_argument('--experimental-mps-stubs',action='store_true',help='reproduce v59 diagnostics that silently skip unsupported compute; never for correctness qualification')
+a=p.parse_args()
+ref=root/'upstream/ios-s9plus-exynos';out=a.output_dir.resolve();out.mkdir(parents=True,exist_ok=True)
 assert subprocess.check_output(['git','-C',str(ref),'rev-parse','HEAD'],text=True).strip()=='2d092398040f98685b0c5a07776df5e9f199b9dc'
 source=out/'metalvk';source.mkdir(exist_ok=True)
 for f in (ref/'metal-wip/frontend').iterdir():
@@ -16,7 +19,7 @@ assert text.count(old)==1;text=text.replace(old,'#define DEFAULT_ICD "/redwood/l
 text=text.replace('tried = true;','tried = true;\n\t\tsetenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);')
 f.write_text(text)
 
-mf=source/'NativeBridgeMetalFrontend.mm';mtext=mf.read_text()
+mf=source/'NativeBridgeMetalFrontend.mm';original_mtext=mf.read_text();mtext=original_mtext
 mtext=mtext.replace('- (void)dealloc {nmb_library_release(_handle);}', '- (void)dealloc {if(_handle)nmb_library_release(_handle);}')
 mtext=mtext.replace('if(!name || !values || !methodABI(values,@selector(newIndexedConstantArray),"@16@0:8") || !methodABI(values,@selector(newNamedConstantArray),"@16@0:8")) {',
                     'if(!_handle){if(error)*error=nbError(@"no library handle");return nil;}\n if(!name || !values || !methodABI(values,@selector(newIndexedConstantArray),"@16@0:8") || !methodABI(values,@selector(newNamedConstantArray),"@16@0:8")) {')
@@ -190,7 +193,7 @@ new_comp_desc = '''- (id<MTLComputePipelineState>)newComputePipelineStateWithDes
 }'''
 assert mtext.count(old_comp_desc) == 1
 mtext = mtext.replace(old_comp_desc, new_comp_desc)
-mf.write_text(mtext)
+mf.write_text(mtext if a.experimental_mps_stubs else original_mtext)
 common=['-target','arm64-apple-ios16.5','-isysroot',str(a.sdk.resolve()),'-O1','-Wall','-Wextra',
  '-I'+str(root/'out/metal2vulkan-bridge').replace('/metal2vulkan-bridge',''),'-I'+str(source)]
 # The source includes bridge/NativeMetalObjects.h. Keep a staged header only;
@@ -212,4 +215,4 @@ with (out/'build.log').open('w') as log:
   '-framework','Foundation','-framework','Metal','-framework','IOSurface','-framework','IOKit','-framework','CoreFoundation','-lobjc'],stdout=log,stderr=subprocess.STDOUT,check=True)
 subprocess.run(['codesign','-s','-','-f',str(binary)],check=True)
 subprocess.run(['codesign','--verify','--strict',str(binary)],check=True)
-print('Built signed Metal frontend; default process gate retained; not installed')
+print('Built signed Metal frontend; '+('experimental MPS stubs enabled' if a.experimental_mps_stubs else 'unsupported compute reports failure')+'; not installed')

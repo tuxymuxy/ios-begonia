@@ -1,16 +1,13 @@
 # Begonia GPU bring-up
 
-Current home-screen output uses the existing software rendering/framebuffer path.
-The user has photographed native SpringBoard; this does not establish GPU acceleration.
-
-Current verified milestones: power/reset, identity and translated memory writes,
-64/64 native shader results, and a user-space IOKit client submitting a mapped
-write job successfully (v45/v47), plus three original IOSurface CPU/GPU visibility
-cycles (v48). Metal-to-Vulkan and native PanVK build/sign for iOS16.5.
-Vulkan instance initialization failed due to the Darwin UUID length guard; the
-correct Mach-O identity fix passed a host test and is under phone test (v49).
-No GPU compositor has been enabled for SpringBoard. Sections below preserve the
-bring-up history; newer hardware results are recorded at the end.
+Hardware qualification now includes native GPU shader execution, IOKit user
+submissions, original IOSurface visibility, Metal-to-Vulkan compute and small
+Metal blit/render tests, and an authored native GLES triangle (v61). The v59
+SpringBoard boot still excluded its compositor from Metal. Its captured driver
+median was67.705ms/frame with a 1125x2436 canvas scaled to the1080x2340 panel.
+v60 proved matching canvas dimensions, without usable FPS windows. v62 tests
+the native GLES compositor with frame timings. GPU test success alone does not
+establish that the UI uses that GPU.
 
 Begonia has Mali-G76 (Bifrost), on the captured Linux DT at `0x13040000`.
 Linux binds Panfrost. A live query returned product `0x7211`, shader mask
@@ -240,3 +237,13 @@ required20bytes though Mach-O UUID is16. Patch0005 fixes expected length for
 Darwin only; host test looks up its actual LC_UUID and checks minimum/padding.
 Native driver rebuilt/signed,0strong unresolved dynamic lookups. v49 tests it.
 PanVK v7 source advertises1.0; metal2vulkan requires1.2. No API override applied.
+
+### v59–v62: distinguish Metal tests from compositor qualification
+
+v59 Metal frontend blit4096/4096 and64x64 IOSurface render clear passed.
+backboardd excluded by metal=2, so no Metal compositing. MPS stubs skipped work;
+new builds require explicit diagnostic flag for these stubs, and stage only
+standalone Metal test clients unless named. PanVK v7 compatibility remains
+experimental and does not claim conformance. v60 matched panel dimensions with
+only boot-arg changes. v61 verified native Mali-G76 GLES clear/triangle,13/13 jobs
+and zero faults. v62 tests existing EAGL compositor adapter on that driver.

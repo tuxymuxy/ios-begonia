@@ -886,3 +886,46 @@ Native ICD rebuilt/signed/audited. v49 same isolated tests, updated ICD and raw
 Vulkan pNext debugcallback. Image60956672bytes SHA256
 5209cf47a5e87e58252a67fe6756b43adcbb8670f0f7a8c2fc2922ce2d016e45;
 install/readback/reboot requested. No UI compositor enabled.
+
+### Nov7 v59 audit and v60 one-variable display test
+
+Reparsed private v59 mirror checksums and exact payload identity. Hardware blit
+4096/4096 and64x64IOSurface render clear valid; backboardd explicitly lacks Metal.
+Original report's size corrected to61401088bytes; hash unchanged. MPS stubs can
+return success and discard compute, so no assertion match in bounded capture is
+not full correctness. Builder now requires --experimental-mps-stubs to reproduce
+that behavior; strict default build/sign verified separately, no device install.
+Removed unsupported PanVK v7 conformance claim and restored explicit opt-in;
+experimental compatibility remains for qualified calls, not general Vulkan1.2.
+
+Eleven unique retained v59 windows: best5.90FPS, median67.705ms driver time,
+zero recorded GPU wait. Layer0 surfaces1125x2436, panel1080x2340. Driver time
+includes scaling/presentation, cannot attribute solely to memcpy. v60 uses
+retune_panel_payload.py to change only canvas boot args and epoch, keeping all
+other payload and boot sections equal. Image61401088bytes SHA256
+f45476e60ecfcaae90185b7735ab96df5e22e8d92f997630d582dab7c58a5b38.
+Written after exact v59prefix verification, full v60 staged hash and readback.
+Data intact;180sec log-preserving recovery. Await measured result.
+
+v60 recovered and capture validates. Canvas and backboardd original surfaces
+1080x2340, physical panel1080x2340; swaps1–3 exact geometry (no scaling). Capture
+has no usable FPS samples; do not infer speed. Broad metal=2 also exposed missing
+MTL selector to mediaserverd, causing uncaught exception. Known v59 preserved.
+
+Parallel hardware GLES route: verified Mesa25.0.7 archive, applied pinned S9
+OSMesa/ES/Darwin source patches, separate40byte DRM ABI and checked binary fences.
+Cross-link excludes laptop pkg-config libraries. OSMesa/EAGL builds sign cleanly,
+409 EAGL entries (356 forwarded,30 handwritten,23 unavailable). v61 isolated
+hardware test rejects softpipe; clear/triangle exact pixels needed before GUI.
+Image53510144bytes SHA256
+7fd72d64f659d131a7321350f596dd57b6703e720386e1d1443307e5ece9bccd.
+Installed/readback,120sec recovery. Prepared v62 GUI candidate with gl=1, native
+canvas and per-frame timing; still uninstalled pending isolated v61.
+
+v61 exact capture PASS: renderer Mali-G76 (Panfrost), RGBA64/128/191/255 clear
+and authored triangle0/255/0/255, GLerror0. Jobs1–13 all success/MMU0,0unfinished.
+GLES is genuine hardware rendering, not software fallback. Installed v62 GUI
+variant only after this pass;53983232bytes SHA256
+da459beac114d6c0141398c40d9ff5e08041543899cb6f28dc0243c9e03b93be.
+Verified v61 current prefix and full v62 staged/readback hashes. Existing data
+kept. gl=1, Metal disabled, matched canvas and per-frame trace;180sec recovery.

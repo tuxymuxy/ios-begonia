@@ -9,7 +9,10 @@ parser.add_argument('--gpu-service-test',type=Path)
 parser.add_argument('--physical-touch',action='store_true')
 parser.add_argument('--quiet',action='store_true')
 parser.add_argument('--with-metal',action='store_true',help='stage PanVK, metal2vulkan, HakiosMetal bundle and GPU test binaries')
+parser.add_argument('--metal-client',action='append',default=[],help='opt in an additional named process; default is diagnostics only')
 args=parser.parse_args()
+if args.metal_client and (not args.with_metal or any(not s or not all(c.isascii() and (c.isalnum() or c in '._-') for c in s) for s in args.metal_client)):
+    parser.error('--metal-client requires --with-metal and a literal process name')
 
 root=Path(__file__).resolve().parents[1];repo=root/'upstream/hakios-xnu-kernel'
 out=args.output_dir or root/'out/begonia-ui-support';dest=out/'root'
@@ -80,7 +83,8 @@ if args.with_metal:
         subprocess.run(['codesign', '--verify', '--strict', str(bundle_bin)], check=True)
 
     # 3. Write HakiosMetal.clients (Metal shown to SpringBoard and tests; backboardd uses GLES)
-    (dest/'lib/HakiosMetal.clients').write_text("SpringBoard\nmetal_frontend_test\nmetal_test\nmetal_vulkan_compute_test\n")
+    clients=dict.fromkeys(['metal_frontend_test','metal_test','metal_vulkan_compute_test',*args.metal_client])
+    (dest/'lib/HakiosMetal.clients').write_text(''.join(name+'\n' for name in clients))
 
     # 4. Stage AIR compute shader
     (dest/'fw').mkdir(exist_ok=True)
