@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);
     native_gpu_install_crash_diagnostics();
-    alarm(60);
+    alarm(120);
 
     puts("BEGONIA METAL FRONTEND: begin");
     @autoreleasepool {

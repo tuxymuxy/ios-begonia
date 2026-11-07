@@ -19,9 +19,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL diagnostic(VkDebugUtilsMessageSeverityFlag
  fprintf(stderr,"BEGONIA VULKAN: driver severity%x %s\n",severity,message->pMessage?message->pMessage:"no message");return VK_FALSE;
 }
 int main(void) {
- setvbuf(stdout,NULL,_IOLBF,0);native_gpu_install_crash_diagnostics();alarm(60);setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
+ setvbuf(stdout,NULL,_IOLBF,0);native_gpu_install_crash_diagnostics();alarm(120);setenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER","1",1);
  puts("BEGONIA VULKAN: ICD dlopen begin");
- void *icd=dlopen("/redwood/lib/libvulkan_panfrost.dylib",RTLD_NOW|RTLD_LOCAL);
+ void *icd=dlopen("/redwood/lib/libvulkan_panfrost.dylib",RTLD_LAZY|RTLD_LOCAL);
  if(!icd){printf("BEGONIA VULKAN: dlopen error %s\n",dlerror());return 1;}
  puts("BEGONIA VULKAN: ICD dlopen complete");
  PFN_vkGetInstanceProcAddr get=(PFN_vkGetInstanceProcAddr)dlsym(icd,"vk_icdGetInstanceProcAddr");

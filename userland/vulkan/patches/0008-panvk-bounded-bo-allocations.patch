@@ -1,0 +1,26 @@
+diff --git a/src/panfrost/vulkan/panvk_device.h b/src/panfrost/vulkan/panvk_device.h
+index c81d537..30444e9 100644
+--- a/src/panfrost/vulkan/panvk_device.h
++++ b/src/panfrost/vulkan/panvk_device.h
+@@ -36,7 +36,7 @@
+  * and 18 attributes per vertex (16 user attributes, 2 specials)
+  */
+ 
+-#define PANVK_JM_MAX_VERTICES_INDIRECT                (2000000)
++#define PANVK_JM_MAX_VERTICES_INDIRECT                (32768)
+ #define PANVK_JM_MAX_PER_VTX_ATTRIBUTES_INDIRECT_SIZE (18 * 4)
+ 
+ struct panvk_precomp_cache;
+diff --git a/src/panfrost/vulkan/panvk_vX_device.c b/src/panfrost/vulkan/panvk_vX_device.c
+index 5e54c68..81600ef 100644
+--- a/src/panfrost/vulkan/panvk_vX_device.c
++++ b/src/panfrost/vulkan/panvk_vX_device.c
+@@ -492,7 +492,7 @@ panvk_per_arch(create_device)(struct panvk_physical_device *physical_device,
+ 
+ #if PAN_ARCH <= 9
+    result = panvk_priv_bo_create(
+-      device, 128 * 1024 * 1024,
++      device, 8 * 1024 * 1024,
+       PAN_KMOD_BO_FLAG_NO_MMAP | PAN_KMOD_BO_FLAG_ALLOC_ON_FAULT,
+       VK_SYSTEM_ALLOCATION_SCOPE_DEVICE, &device->tiler_heap);
+    if (result != VK_SUCCESS)

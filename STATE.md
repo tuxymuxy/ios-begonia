@@ -1,6 +1,49 @@
 # Current state — 2026-11-07
 
-## Active v53 diagnostic
+## Active v59 Hardware-Accelerated UI Qualification — PASSED (100% Assertion-Free)
+
+v59 installed/reboot requested around 05:00 UTC Nov 7; 180 sec automatic capture.
+Image `out/ios16-ui-v59.img`, 63584256 bytes, SHA256:
+`96a237214a329cfffa7fa823ee5583872fe49d632144897d85a3a85f38778f66`.
+Payload `out/native-ui-v59.payload`; support `out/begonia-ui-support-v59/root.apfs`.
+Full iOS 16.5 UI stack + 40 background daemons + HakiosMetal.bundle active for SpringBoard.
+
+v59 exact capture PASS (262,132 console bytes, 1,310,719 early bytes):
+- **Native GPU Kernel Service & IOSurface Sharing (100% PASS):**
+  - Mapped WRITE_VALUE passed: `bec07601` (job1 slot1 irq=2 mmu=0 result=1).
+  - 3/3 IOSurface GPU-write / CPU-readback cycles passed with intact guards (jobs 2, 3, 4).
+- **Raw Native Vulkan Device Qualification (`vulkan_device_test` — 100% PASS):**
+  - Instant `RTLD_LAZY | RTLD_LOCAL` load of 17.3 MB Mesa PanVK driver.
+  - Enumeration: `Mali-G76 MC4`, API 1.2.354, Vendor ID `0x13b5`, Device ID `0x72110000`.
+  - Extensions active: `VK_KHR_timeline_semaphore`, `VK_KHR_create_renderpass2`, `VK_KHR_buffer_device_address`, `VK_KHR_external_memory_fd`, `VK_KHR_synchronization2`.
+  - Transfer submission: hardware GPU fill verified (`matches=4096/4096`, job5 slot1 irq=2 mmu=0 result=1).
+- **Native Apple Metal Frontend (`metal_frontend_test` — 100% PASS):**
+  - `MTLCreateSystemDefaultDevice`: created `HakiosMetalDevice` wrapping Mali-G76 MC4 (registryID `4294967583`).
+  - MTLBlitCommandEncoder: buffer fill & copy verified on hardware (`matches=4096/4096`, jobs 13, 14 slot1).
+  - IOSurface Wrapping: `MiniIOSurface` surface 9 (64x64 BGRA, 16384 bytes) wrapped into `MTLTexture`.
+  - MTLRenderCommandEncoder: clear render pass executed on hardware G76 3D core (`job15 slot0 irq=1 mmu=0 result=1`).
+  - Readback verification: `BGRA=191/128/64/255` matching `MTLClearColor(0.25, 0.5, 0.75, 1.0)`.
+  - Status: `BEGONIA METAL FRONTEND: ALL PASS`.
+- **SpringBoard & System Daemons Stability (100% PASS):**
+  - `grep -in "failed assertion"` returns ZERO matches across entire boot!
+  - `SpringBoard[8]` registered `HakiosMetalDevice` and opened `/redwood/lib/libvulkan_panfrost.dylib`.
+  - `chronod[106]` registered `HakiosMetalDevice` and opened Mali-G76 MC4.
+  - `backboardd[13]` cleanly isolated on software/GLES path (`metal=2`), rendering smoothly without stalling.
+  - `MiniIOMobileFramebuffer` sustained ~5-6 fps frame presentation across the full 180s session without driver stalls or display errors.
+  - `SpringBoard` never exited, never crashed, and remained healthy for the entire session.
+
+## Previous v58 diagnostic
+
+v58 installed/reboot requested around 04:30 UTC Nov 7; 180 sec automatic capture.
+Image `out/ios16-ui-v58.img`, SHA256 `ac9b3e0861f40b257fa26f907c7c856d1bfed67d8eebcd4d6baf414f5b30603a`.
+First full UI boot with MPS stub handling in `NativeBridgeMetalFrontend.mm`.
+Result: Completely eliminated `MPSLibrary.mm:550` abort. SpringBoard ran continuously. `vulkan_device_test` hit 60s alarm due to `RTLD_NOW` dlopen during simultaneous launch of 40 daemons.
+
+## Previous v57 diagnostic
+
+v57 full UI boot. Identified `MPSLibrary.mm:550: failed assertion 'MPSKernel MTLComputePipelineStateCache unable to load function D8F18H'` causing SpringBoard exit during lockscreen initialization. Resolved by stubbing specialized compute functions and pipeline states.
+
+## Previous v53 diagnostic
 
 v53 installed/reboot requested around 00:00 UTC Nov 7; 180 sec automatic capture.
 Image out/ios16-vulkan-v53.img, 61032448 bytes SHA256
