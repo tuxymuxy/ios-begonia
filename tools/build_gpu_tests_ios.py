@@ -8,7 +8,8 @@ base=['xcrun','clang','-target','arm64-apple-ios16.5','-isysroot',str(a.sdk.reso
 cases=[('gpu_service_test.c',['-I',str(root/'upstream/viva-gpu/vgpu'),'-framework','IOKit','-framework','CoreFoundation']),
  ('gpu_surface_test.m',['-fobjc-arc','-I',str(root/'upstream/viva-gpu/vgpu'),'-framework','Foundation','-framework','IOSurface','-framework','IOKit']),
  ('vulkan_device_test.c',['-I',str(root/'upstream/mesa-vulkan/include')]),
- ('metal_vulkan_compute_test.c',['-I',str(root/'out/metal2vulkan-bridge'),str(root/'out/metal2vulkan-target-ios/aarch64-apple-ios/release/libmetal2vulkan_bridge.dylib'),'-Wl,-rpath,@executable_path/../lib'])]
+ ('metal_vulkan_compute_test.c',['-I',str(root/'out/metal2vulkan-bridge'),str(root/'out/metal2vulkan-target-ios/aarch64-apple-ios/release/libmetal2vulkan_bridge.dylib'),'-Wl,-rpath,@executable_path/../lib']),
+ ('metal_frontend_test.m',['-fobjc-arc','-framework','Foundation','-framework','Metal','-framework','IOSurface','-framework','IOKit'])]
 for name,flags in cases:
  target=out/Path(name).stem
  subprocess.run([*base,str(root/'tests'/name),*flags,'-o',str(target)],check=True)

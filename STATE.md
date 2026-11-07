@@ -1,6 +1,42 @@
-# Current state — 2026-11-06
+# Current state — 2026-11-07
 
-## Active v51 diagnostic
+## Active v53 diagnostic
+
+v53 installed/reboot requested around 00:00 UTC Nov 7; 180 sec automatic capture.
+Image out/ios16-vulkan-v53.img, 61032448 bytes SHA256
+92feb0b3bef290c242356862b7dea918f708db8db287218fbaa5e1887e666f15.
+Payload out/native-vulkan-v53.payload; kernel out/kernel.begonia-vulkan-v46;
+support out/begonia-vulkan-support-v53/root.apfs. Isolated tests: no GUI.
+ICD includes 0006 Darwin cache-ops fix and 0007 Vulkan 1.2 advertisement.
+metal2vulkan-runtime memory pooling tuned with BLOCK_BYTES = 2 MiB (2 << 20).
+Chainloader image uses begonia-chain-xnu-forced/Image for guaranteed XNU diagnostic entry.
+
+v53 exact capture PASS (request 0x2287f34c, checksums valid).
+- Private BO WRITE_VALUE PASS (bec07601, job1 slot1 irq=2 mmu=0 result=1).
+- 3/3 IOSurface GPU-write / CPU-read cycles PASS with preserved guards (jobs 2, 3, 4).
+- Raw Vulkan PASS: device=Mali-G76 MC4, API=1.2.354, ID 72110000. Transfer fill:
+  matches=4096/4096 (job5 slot1 irq=2 mmu=0 result=1).
+- Metal2Vulkan bridge compute PASS: translated AIR pipeline, matches=64/64 (job6 slot1 irq=2 mmu=0 result=1).
+- Native Apple Metal Frontend (HakiosMetal.bundle) ALL PASS:
+  - MTLCreateSystemDefaultDevice: returned Mali-G76 MC4 (registryID=4294967583).
+  - Buffer allocation: 2 MiB pool block mapped effortlessly without kernel VA exhaustion.
+  - Blit encoder fill + copy: job7, job8 slot1 irq=2 mmu=0 result=1 -> blit fill/copy matches=4096/4096.
+  - IOSurface wrapping: wrapped in MTLTexture successfully (0x141d3b620).
+  - RenderPass clear on IOSurface: hardware 3D clear executed on slot0 (job9 slot0 irq=1 mmu=0 result=1).
+  - IOSurface readback: BGRA=191/128/64/255 -> matches expected clear color MTLClearColorMake(0.25, 0.5, 0.75, 1.0).
+  - BEGONIA METAL FRONTEND: ALL PASS!
+
+## Previous v52 diagnostic
+
+v52 installed/reboot requested around 23:15 UTC Nov 6; 180 sec automatic capture.
+Image out/ios16-vulkan-v52.img, 61034496 bytes SHA256 79deb01f2f841a9a727c1463310e87b7cff6b6ac1a1ff7609bcf8f51dad33b10.
+Payload out/native-vulkan-v52.payload; support out/begonia-vulkan-support-v52/root.apfs.
+Added metal_frontend_test.m and HakiosMetal.bundle frontend.
+Passed device instantiation via MTLCreateSystemDefaultDevice(), but buffer allocation failed:
+`HakiosMali: a buffer of 67108864 bytes cannot be entered into the GPU's address space` /
+`native-metal: buffer refused: buffer: OutOfMemory(Device)` due to hardcoded 64 MiB BLOCK_BYTES in metal2vulkan.
+
+## Previous v51 diagnostic
 
 v51 installed/reboot requested around 22:51 UTC Nov 6; 180 sec automatic capture.
 Image out/ios16-vulkan-v51.img, 60956672 bytes SHA256

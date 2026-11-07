@@ -12,7 +12,9 @@ for f in (ref/'metal-wip/frontend').iterdir():
 for name in ('hakios_metal_shown.h','hakios_metal_shown.c'):
  shutil.copy2(ref/'core/userland/src'/name,out/name)
 f=source/'HakiosMetalVK.mm';text=f.read_text();old='#define DEFAULT_ICD "/redwood/lib/libhakios.vk.dylib"'
-assert text.count(old)==1;f.write_text(text.replace(old,'#define DEFAULT_ICD "/redwood/lib/libvulkan_panfrost.dylib"'))
+assert text.count(old)==1;text=text.replace(old,'#define DEFAULT_ICD "/redwood/lib/libvulkan_panfrost.dylib"')
+text=text.replace('tried = true;','tried = true;\n\t\tsetenv("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);')
+f.write_text(text)
 common=['-target','arm64-apple-ios16.5','-isysroot',str(a.sdk.resolve()),'-O1','-Wall','-Wextra',
  '-I'+str(root/'out/metal2vulkan-bridge').replace('/metal2vulkan-bridge',''),'-I'+str(source)]
 # The source includes bridge/NativeMetalObjects.h. Keep a staged header only;
@@ -30,6 +32,7 @@ with (out/'build.log').open('w') as log:
  binary=out/'HakiosMetal'
  subprocess.run(['xcrun','clang++',*common,'-bundle','-o',str(binary),*map(str,objects),
   str(root/'out/metal2vulkan-target-ios/aarch64-apple-ios/release/libmetal2vulkan_bridge.dylib'),
+  '-Wl,-rpath,/redwood/lib','-Wl,-rpath,@loader_path/..',
   '-framework','Foundation','-framework','Metal','-framework','IOSurface','-framework','IOKit','-framework','CoreFoundation','-lobjc'],stdout=log,stderr=subprocess.STDOUT,check=True)
 subprocess.run(['codesign','-s','-','-f',str(binary)],check=True)
 subprocess.run(['codesign','--verify','--strict',str(binary)],check=True)

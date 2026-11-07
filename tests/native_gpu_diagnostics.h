@@ -23,7 +23,7 @@ static void native_gpu_install_crash_diagnostics(void) {
  const int signals[]={SIGILL,SIGBUS,SIGSEGV,SIGABRT,SIGALRM};
  for(unsigned i=0;i<sizeof signals/sizeof signals[0];i++)sigaction(signals[i],&action,NULL);
 }
-static void native_gpu_record_icd(void *entry) {
+static void __attribute__((unused)) native_gpu_record_icd(void *entry) {
  Dl_info info={0};if(entry && dladdr(entry,&info))diagnostic_icd_base=(uintptr_t)info.dli_fbase;
 }
 #endif

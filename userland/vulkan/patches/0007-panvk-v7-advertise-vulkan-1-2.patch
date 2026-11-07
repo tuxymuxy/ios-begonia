@@ -1,8 +1,28 @@
+diff --git a/src/panfrost/vulkan/panvk_physical_device.c b/src/panfrost/vulkan/panvk_physical_device.c
+index e7e64e2..e5388ca 100644
+--- a/src/panfrost/vulkan/panvk_physical_device.c
++++ b/src/panfrost/vulkan/panvk_physical_device.c
+@@ -461,7 +461,6 @@ panvk_physical_device_init(struct panvk_physical_device *device,
+ 
+    switch (arch) {
+    case 6:
+-   case 7:
+    case 14:
+       if (!os_get_option("PAN_I_WANT_A_BROKEN_VULKAN_DRIVER")) {
+          result = panvk_errorf(instance, VK_ERROR_INCOMPATIBLE_DRIVER,
+@@ -472,6 +471,7 @@ panvk_physical_device_init(struct panvk_physical_device *device,
+       }
+       break;
+ 
++   case 7:
+    case 10:
+    case 12:
+    case 13:
 diff --git a/src/panfrost/vulkan/panvk_vX_physical_device.c b/src/panfrost/vulkan/panvk_vX_physical_device.c
-index 2816d7a..9f9a463 100644
+index 9281c39..2043f21 100644
 --- a/src/panfrost/vulkan/panvk_vX_physical_device.c
 +++ b/src/panfrost/vulkan/panvk_vX_physical_device.c
-@@ -773,13 +773,19 @@ get_api_version()
+@@ -773,6 +773,9 @@ get_api_version()
     if (PAN_ARCH >= 10)
        return VK_MAKE_API_VERSION(0, 1, 4, VK_HEADER_VERSION);
  
@@ -12,9 +32,7 @@ index 2816d7a..9f9a463 100644
     return VK_MAKE_API_VERSION(0, 1, 0, VK_HEADER_VERSION);
  }
  
- static VkConformanceVersion
- get_conformance_version()
- {
+@@ -782,6 +785,9 @@ get_conformance_version()
     if (PAN_ARCH == 10)
        return (VkConformanceVersion){1, 4, 1, 2};
  
@@ -23,3 +41,4 @@ index 2816d7a..9f9a463 100644
 +
     return (VkConformanceVersion){0, 0, 0, 0};
  }
+ 
