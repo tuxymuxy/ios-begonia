@@ -160,10 +160,13 @@
     "first_frame_console_release_verified": true
   },
   "native_gui": {
-    "verified": "owner photographs IMG_9416/IMG_9417, 2026-11-05",
-    "build": "v10 two-hour verbose test",
-    "hardware_gpu": false,
-    "physical_touch_verified": false
+    "verified": "v62 exact capture: CoreAnimation GLES3.1 Mali-G76 and native-size presented frames",
+    "build": "v62 hardware GLES compositor",
+    "hardware_gpu": true,
+    "physical_touch_verified": false,
+    "renderer": "Mali-G76 (Panfrost)",
+    "active_window_fps": 4.19,
+    "active_window_display_driver_ms": 2.852
   },
   "gpu_linux_parameters": {
     "product_id": "0x7211",
@@ -181,7 +184,10 @@
     "metal_acceleration_verified": false,
     "user_client_write_job_verified": true,
     "iosurface_original_page_write_verified": true,
-    "iosurface_cpu_gpu_cache_cycles_verified": 3
+    "iosurface_cpu_gpu_cache_cycles_verified": 3,
+    "gles_compositor_verified": true,
+    "metal_compute_blit_clear_verified": true,
+    "metal_compositor_verified": false
   },
   "native_cpu": {
     "xnu_cores_running": 1,

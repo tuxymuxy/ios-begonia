@@ -5,9 +5,9 @@ submissions, original IOSurface visibility, Metal-to-Vulkan compute and small
 Metal blit/render tests, and an authored native GLES triangle (v61). The v59
 SpringBoard boot still excluded its compositor from Metal. Its captured driver
 median was67.705ms/frame with a 1125x2436 canvas scaled to the1080x2340 panel.
-v60 proved matching canvas dimensions, without usable FPS windows. v62 tests
-the native GLES compositor with frame timings. GPU test success alone does not
-establish that the UI uses that GPU.
+v60 proved matching canvas dimensions, without usable FPS windows. v62 capture
+confirms CoreAnimation uses Mali-G76 Panfrost GLES3.1. Active window was4.19FPS,
+with2.852ms/frame in the display driver; overall UI responsiveness is still low.
 
 Begonia has Mali-G76 (Bifrost), on the captured Linux DT at `0x13040000`.
 Linux binds Panfrost. A live query returned product `0x7211`, shader mask
@@ -247,3 +247,17 @@ standalone Metal test clients unless named. PanVK v7 compatibility remains
 experimental and does not claim conformance. v60 matched panel dimensions with
 only boot-arg changes. v61 verified native Mali-G76 GLES clear/triangle,13/13 jobs
 and zero faults. v62 tests existing EAGL compositor adapter on that driver.
+
+### v62 actual GPU compositor result
+
+Exact request and capture checksums validate. CoreAnimation's EAGL context
+reports Mesa25.0.7 Mali-G76(Panfrost), OpenGL ES3.1. Native1080x2340 surfaces
+reach scanout. 432 captured kernel GPU jobs all report success andMMU0; continued
+submissions after the isolated GLES helper finishes distinguish compositor use
+from the test alone. 30 swap timing samples median2.813ms draw. 21frames in
+5016ms:4.19FPS,2.852ms display-driver time/frame,0.677ms GPUwait/frame. Earlier
+v59 median67.705ms driver time; v62 changes both renderer and canvas, so do not
+assign the difference to one change. Sustained30–60FPS or full daily-driver
+interaction is not established. Native GLES and experimental Metal test paths
+remain separate. Some IOSurface textures use copy fallback; per-job resets,
+render scheduling and startup contention remain to profile.

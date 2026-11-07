@@ -929,3 +929,11 @@ variant only after this pass;53983232bytes SHA256
 da459beac114d6c0141398c40d9ff5e08041543899cb6f28dc0243c9e03b93be.
 Verified v61 current prefix and full v62 staged/readback hashes. Existing data
 kept. gl=1, Metal disabled, matched canvas and per-frame trace;180sec recovery.
+
+v62 recovered to PMOS and exact capture validates. CoreAnimation renderer
+Mali-G76(Panfrost), OpenGL ES3.1. 432 captured GPU jobs succeed/MMU0; native
+1080x2340 swaps. 30 per-swap draws median2.813ms; active window21frames/5016ms
+(4.19FPS),2.852ms driver time/frame and0.677ms GPUwait/frame. This establishes
+actual hardware GLES compositing and much lower display cost, not smooth or
+complete iOS use. Metal remains off for v62. No data or clock changes in this
+test; installed v62 and original recovery/known v59 backups retained.

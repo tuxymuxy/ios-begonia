@@ -25,3 +25,9 @@ adapter and full daemon set for a separate test. Enable it via
 `make_native_payload.py --gles-compositor --gpu-service` plus the required GPU
 selftest flags. Neither staging nor building writes the phone. The log-preserving
 recovery base is required for every diagnostic image.
+
+Hardware results: v61 exact capture verified Mali-G76 clear and triangle
+readback. v62 verified CoreAnimation itself uses Mali-G76 GLES3.1, with432
+successful captured GPU jobs and native1080x2340 presentation. One active frame
+window measured4.19FPS and2.852ms/frame in the display driver. See `STATE.md`
+for the tested images and limits.

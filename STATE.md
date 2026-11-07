@@ -1,15 +1,23 @@
 # Current state — 2026-11-07
 
-## Active v62 GLES compositor test
+## v62 hardware GLES compositor verified
 
 v62 installed/readback verified around07:35UTC Nov7,180sec capture. Image
 `out/ios16-gles-v62-ui.img`,53983232bytes SHA256
 `da459beac114d6c0141398c40d9ff5e08041543899cb6f28dc0243c9e03b93be`.
 Payload `out/native-gles-v62-ui.payload`, support `out/begonia-gles-support-v62/root.apfs`.
 Opt-in gl=1, Metal disabled, native1080x2340 canvas, per-frame timing enabled.
-Look for actual CoreAnimation context renderer, GPU submissions after helper,
-`tl: v` draw times, presented frames, exceptions and exact capture request.
-No accelerated compositor result until capture validates.
+Phone recovered to postmarketOS; v62 boot image remains installed. Capture
+checksums and exact request verified. CoreAnimation selected OpenGL ES3.1
+Mesa25.0.7 Mali-G76 (Panfrost), with432 captured successful GPU jobs and no
+logged job/MMU failures. Native1080x2340 frames presented. 30 per-swap timing
+samples, median2.813ms draw. Active presentation window21frames/5016ms
+(4.19FPS), driver2.852ms/frame, GPU wait0.677ms/frame. Compare v59's retained
+67.705ms driver median; new configuration combines native canvas and GLES,
+so this comparison is not a controlled single-cause speedup. UI frame rate is
+still low and this capture does not qualify full interactive app use.
+No Metal compositor, SMP, or GPU clock increase. Texture copy fallbacks and
+synchronous per-job resets remain; profile these before further speed claims.
 
 v61 isolated GLES test passed on actual hardware: Mali-G76 (Panfrost), clear
 RGBA64/128/191/255, authored triangle RGBA0/255/0/255, GL error0. Thirteen GPU

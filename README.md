@@ -8,7 +8,7 @@ build tools and process notes; it is not a ready-to-flash ROM.
 Current status:
 
 - Native XNU, UFS-backed read-only iOS system image, launchd, backboardd and
-  SpringBoard run on the phone. Software-rendered frames reach the real panel.
+  SpringBoard run on the phone. v62 uses Mali-G76 hardware GLES compositing.
 - First boot required a long attempt; the earlier 4/15-minute limits were too short.
 - Novatek NT36672A touch: firmware boot and physical finger events are verified
   in XNU. Owner opened Settings with touch on v24 after console release;
@@ -18,10 +18,10 @@ Current status:
   path mounted successfully, and an iOS-written marker survived reboot.
 - CPU: native clock/rail readback and guarded 1.275 GHz A55 / 875 MHz CCI
   correction passed a short boot test at unchanged voltages. SMP is unverified.
-- GPU: native G76 power/reset and a private-page write jobs pass, including
-  four-level address translation. Native compute shaders produce64/64
-  expected results. Mesa-backed Metal and metal2vulkan iOS libraries build;
-  native Vulkan transport and iOS UI acceleration are still under development.
+- GPU: real G76 compute, Metal blit and small IOSurface clear tests pass.
+  CoreAnimation uses Mali-G76 (Panfrost) GLES3.1 in v62. One captured active
+  window was4.19FPS, with about3ms/frame in the display driver. Metal-based
+  compositing and smooth, sustained UI performance remain unfinished.
 - Mu-Silicium menu and volume navigation worked, but OS handoff stalled; deferred.
 
 See [process log](docs/PROCESS.md), [storage](docs/STORAGE.md),
