@@ -39,7 +39,7 @@ __attribute__((unused)) static void mirror_logs(struct context *c){
 void watcher_main(struct context *c){
  uint64_t hz=freq(),end=ticks()+hz*c->seconds,next=0;
  begonia_emit_text("BEGONIA WATCHER: independent supervisor running\n");
- while(ticks()<end){
+ while(c->seconds == 0 || ticks()<end){
 #ifndef QEMU_UART
   if(ticks()>=next){
    volatile uint32_t *wdt=(volatile uint32_t *)0x10007000;
@@ -76,7 +76,7 @@ void watcher_main(struct context *c){
 #else
  begonia_emit_text("BEGONIA WATCHER: warm reset to postmarketOS\n");
 #endif
- (void)smc(0x84000009,0,0,0);
+ (void)smc(0x84000008,0,0,0);
  *(volatile uint32_t *)0x10007014=0x1209;
 #endif
  for(;;)__asm__ volatile("wfe");

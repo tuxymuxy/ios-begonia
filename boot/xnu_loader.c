@@ -59,11 +59,15 @@ int xnu_main(void) {
     if(!request)request=1;
 #ifdef XNU_FORCE_TEST
     volatile uint64_t *saved=(volatile uint64_t *)0x1b7e00000ULL;
-    if(saved[0]==0x3230474f4c474542ULL && saved[8]==request){
-        begonia_emit_text("BEGONIA XNU: this test log is captured; chaining postmarketOS\n");
+    volatile uint32_t *boot_done=(volatile uint32_t *)0x4d0e0108;
+    if((saved[0]==0x3230474f4c474542ULL && saved[8]==request) || *boot_done==request){
+        begonia_emit_text("BEGONIA XNU: test already executed; chaining postmarketOS\n");
+        *boot_done=request;
+        *mark=0;
         return 0;
     }
     begonia_emit_text("BEGONIA XNU: explicit native test; warm fallback after log capture\n");
+    *boot_done=request;
     *mark=request;__asm__ volatile("dsb sy" ::: "memory");
 #endif
     if(*mark!=request){begonia_emit_text("BEGONIA XNU: no explicit request; chaining postmarketOS\n");return 0;}
@@ -88,15 +92,29 @@ int xnu_main(void) {
         const char *key="begonia_root=1";unsigned j=0;
         while(j<14 && args->cmdline[i+j]==key[j])j++;
         if(j==14){
-            if(args->top>p->phys+0x03000000)return 0;
-            zero((void *)(p->phys+0x03000000),0x4000);
-            args->top=p->phys+0x03004000;
-            /* Verified LK layer 1: ARGB8888, 1080x2340, pitch 4320.
-             * Use measured registers again and reject a changed scanout. */
+            if(args->top>p->phys+0x08000000)return 0;
+            zero((void *)(p->phys+0x08000000),0x4000);
+            args->top=p->phys+0x08004000;
+            /* Verified LK layer 1 / layer 0: ARGB8888, 1080x2340, pitch 4320.
+             * Supports both PMOS / Linux handoff (Layer 1) and Fastboot handoff (Layer 0). */
             volatile uint32_t *ovl=(volatile uint32_t *)0x14008000;
-            uint32_t con=ovl[0x50/4],pitch=ovl[0x64/4]&0xffff,addr=ovl[0xf60/4],dim=ovl[0x58/4];
-            if((ovl[0x2c/4]&2) && ((con>>12)&15)==2 && dim==0x09240438 && pitch==4320 && addr>=0x7d9b0000 && (uint64_t)addr+(uint64_t)pitch*2340<=0x7fc00000){
-                ovl[0x50/4]=con&~0x100u; /* opaque scanout, as the related MTK loader does */
+            uint32_t con=0,pitch=0,addr=0,dim=0;
+            int found=0;
+            if(ovl[0x2c/4]&2){
+                con=ovl[0x50/4];pitch=ovl[0x64/4]&0xffff;addr=ovl[0xf60/4];dim=ovl[0x58/4];
+                if(((con>>12)&15)==2 && dim==0x09240438 && pitch==4320 && addr>=0x7d000000 && (uint64_t)addr+(uint64_t)pitch*2340<=0x80000000){
+                    ovl[0x50/4]=con&~0x100u;
+                    found=1;
+                }
+            }
+            if(!found && (ovl[0x2c/4]&1)){
+                con=ovl[0x30/4];pitch=ovl[0x44/4]&0xffff;addr=ovl[0xf40/4];dim=ovl[0x38/4];
+                if(((con>>12)&15)==2 && dim==0x09240438 && pitch==4320 && addr>=0x7d000000 && (uint64_t)addr+(uint64_t)pitch*2340<=0x80000000){
+                    ovl[0x30/4]=con&~0x100u;
+                    found=1;
+                }
+            }
+            if(found){
                 __asm__ volatile("dsb sy" ::: "memory");
                 args->video[0]=addr;args->video[1]=0;args->video[2]=pitch;args->video[3]=1080;args->video[4]=2340;args->video[5]=32;
                 begonia_emit_text("BEGONIA XNU: inherited display accepted\n");
@@ -112,8 +130,16 @@ int xnu_main(void) {
     uint32_t seconds=5;
 #else
     uint64_t configured=arg_number(args->cmdline,"begonia_watch=");
-    if(configured && (configured<30 || configured>7200))return 0;
-    uint32_t seconds=configured?(uint32_t)configured:240;
+    uint32_t seconds=240;
+    for(unsigned i=0;i<sizeof(args->cmdline)-15;i++){
+        const char *k="begonia_watch=";unsigned j=0;
+        while(j<14 && args->cmdline[i+j]==k[j])j++;
+        if(j==14){
+            if(args->cmdline[i+14]=='0' && (args->cmdline[i+15]==' '||args->cmdline[i+15]=='\0')) seconds=0;
+            else if(configured>=10 && configured<=86400) seconds=(uint32_t)configured;
+            break;
+        }
+    }
 #endif
     if(!watcher_start(lp,np,cp,seconds,request)){begonia_emit_text("BEGONIA XNU: supervisor unavailable; returning to Linux\n");return 0;}
     __asm__ volatile("dsb sy; ic iallu; dsb sy; isb" ::: "memory");

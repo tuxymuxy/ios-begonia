@@ -222,8 +222,16 @@ void begonia_mali_probe(uint32_t gpu_uv,uint32_t sram_uv,int rails_enabled) {
  if(wait_bits(infra,0x258,7u<<19,7u<<19))return;
  wr(infra,0x2a0,3u<<21);
  if(wait_bits(infra,0x228,3u<<21,3u<<21))return;
- /* MFG clock: documented crystal parent0, ungated; do not raise MFGPLL. */
- wr(top,0x58,(3u<<16)|(1u<<23));wr(top,0x4,1u<<14);
+ /* MFG clock: switch from crystal (parent 0) to MFGPLL 270MHz (parent 1) when rail is verified. */
+ if (gpu_uv >= 612500) {
+  wr(top,0x58,(3u<<16)|(1u<<23));
+  wr(top,0x54,1u<<16);
+  wr(top,0x4,1u<<14);
+ } else {
+  wr(top,0x58,(3u<<16)|(1u<<23));
+  wr(top,0x4,1u<<14);
+ }
+ printf("BEGONIA GPU: CLK_CFG_3=%08x (parent=%u)\n", rd(top,0x50), (rd(top,0x50)>>16)&3);
  wr(spm,0,0x0b160001);
  if(domain_on(spm,0x328,1u<<4,0) || domain_on(spm,0x32c,1u<<7,2))return;
  wr(infra,0x2a4,3u<<21);wr(infra,0x2ac,7u<<19);
@@ -236,8 +244,9 @@ void begonia_mali_probe(uint32_t gpu_uv,uint32_t sram_uv,int rails_enabled) {
  printf("BEGONIA GPU: domains ready, ungating BG3D before ID read\n");
  wr(cfg,8,1);
  uint32_t id=rd(gpu,0);
- printf("BEGONIA GPU: ID=%08x shader=%x tiler=%x L2=%x at crystal clock\n",
-    id,rd(gpu,0x100),rd(gpu,0x110),rd(gpu,0x120));
+ printf("BEGONIA GPU: ID=%08x shader=%x tiler=%x L2=%x at %s\n",
+    id,rd(gpu,0x100),rd(gpu,0x110),rd(gpu,0x120),
+    (gpu_uv >= 612500) ? "270MHz MFGPLL" : "crystal clock");
  if((id>>16)!=0x7211) {printf("BEGONIA GPU: identity mismatch; reset skipped\n");return;}
  wr(gpu,0x28,0);wr(gpu,0x24,0xffffffff);wr(gpu,0x30,1);
  if(wait_bits(gpu,0x20,1u<<8,1u<<8))return;

@@ -937,3 +937,65 @@ Mali-G76(Panfrost), OpenGL ES3.1. 432 captured GPU jobs succeed/MMU0; native
 actual hardware GLES compositing and much lower display cost, not smooth or
 complete iOS use. Metal remains off for v62. No data or clock changes in this
 test; installed v62 and original recovery/known v59 backups retained.
+
+### Nov 7 QuartzCore Metal library and submission costs
+
+Scoped the strict iOS Metal frontend to backboardd with the native canvas
+and normal wallpaper path. v63 selected Mali-G76 and completed 826 GPU
+jobs, but backboardd repeatedly exited and no display swaps were captured.
+v64 swapped in an assembled QuartzCore library and removed the support bin
+directory to fit RAM. That also removed hello_dyn. Without its early dynamic
+link step, launchd could not load libSystem.B.dylib. Recovered to PMOS without
+altering the iOS data volume.
+
+v66 restored the v63 support tree and used the HakiOS pipeline-cache technique.
+The adapter provides an iOS 16 target descriptor and lets Metal generate
+an empty cache for the Mali target. It then reopens the original descriptions.
+v66 image 61419520 bytes, SHA256
+`57efe73cb1e1ba743253801dfe6f90e4a0b5bc0464874047434b9524bed876e0`.
+The exact capture verified that QuartzCore opened the library and that
+996 GPU job sequences completed. It also identified backboardd's uncaught
+`newFunctionWithName:constantValues:functionCache:error:` selector on NBLibrary.
+There were still no compositor frame timings.
+
+v67 retains the early helpers and removes unused diagnostics to fit the
+assembled QuartzCore library. It again opened the pipeline library and
+reproduced the shader specialization selector failure. v69 adds the missing method and routes
+specialization through the existing Metal-to-Vulkan compiler. The frontend
+does not consume Apple's device-specific compiled shader cache. Unsupported
+operations still report errors. Both images use a 150-second recovery deadline.
+The installed v69 image is 62101504 bytes, SHA256
+`bda40e08b3c53693877480549ac741a59560ebce49fb3fde52b2b1093edb7b75`.
+
+Prepared v68 with the v62 GLES support volume and the revised GPU submission
+kernel. The mapper tracks dirty tables and flushes their 4 KiB of entries
+before GPU use. Startup and the end of each job retain the reset, with failure
+disabling the service. Host mapping and dirty tracking regression checks pass.
+Hardware benchmarking is separate from the Metal compositor tests.
+
+### Nov 7 recovery after the reported v80 display failure
+
+The owner's clip showed verbose console output. The text was too small
+to identify a specific crash. The local v80 payload contains
+`begonia_keep_console=1`, which keeps the console drawing after graphics
+start. That setting can obscure UI output. The clip alone cannot establish
+whether SpringBoard failed to start.
+
+Confirmed the attached FASTBOOT device was an unlocked begonia with a 64 MiB
+boot partition. Flashed the verified log-preserving postmarketOS boot image
+and confirmed USB SSH returned. The reserved log reader found no valid capture
+from the broken boot. The iOS data volume was preserved.
+
+Prepared a v78 replay by changing only the epoch in the verified original
+payload and regenerating the Android boot image header digest. This retained
+the exact kernel, loader, support volume, 180-second recovery, and display
+settings. Installed and verified the boot partition readback over SSH.
+Replay image `out/ios16-metal-v78-recovery.img`, 62107648 bytes, SHA256
+`03b94d0039fa7d4c89ff4d7901a12539eee172839e800f4680d2b998886d8383`.
+Expected capture request `0x2b27351f`.
+
+The replay returned to postmarketOS and the capture checksums and request
+matched. SpringBoard and backboardd ran and the framebuffer driver accepted
+swaps, with a median of 4.73 FPS across 23 timing windows. The owner saw
+only backlight. These logs establish software and GPU activity but cannot
+establish panel output. The planned longer v78 replay was canceled.

@@ -17,11 +17,24 @@ rd(vm_offset_t base, unsigned offset)
     return *(volatile uint32_t *)(base + offset);
 }
 
-/* AP WACS2 command channel: only read commands (bit31 clear), no PMIC writes. */
+/* AP WACS2 command channel: read and write commands. */
 static void pw_wr(vm_offset_t base, unsigned offset, uint32_t value)
 {
     *(volatile uint32_t *)(base+offset)=value;
     __asm__ volatile("dsb sy" ::: "memory");
+}
+static int pmic_write(vm_offset_t base, unsigned address, uint32_t value)
+{
+    if ((address&1) || address>0xfffe || (value&~0xffff)) return -1;
+    uint32_t state=rd(base,0xc24);
+    if (!(state&(1u<<22)) || ((state>>16)&7)!=0) return -1;
+    pw_wr(base,0xc20,(1u<<31)|((address>>1)<<16)|(value&0xffff));
+    for (unsigned i=0;i<1000;i++) {
+        state=rd(base,0xc24);
+        if (((state>>16)&7)==0) return 0;
+        delay(10);
+    }
+    return -1;
 }
 static int pmic_read(vm_offset_t base, unsigned address, uint32_t *value)
 {
@@ -130,6 +143,17 @@ begonia_perf_init(void)
            !pmic_read(pw,0x15a6,&gv) && !pmic_read(pw,0x15a8,&ge) &&
            !pmic_read(pw,0x14a6,&sv) && !pmic_read(pw,0x14a8,&se)) {
             printf("BEGONIA GPU: rail readbacks core=%04x/%04x SRAM=%04x/%04x\n",gv,ge,sv,se);
+            if ((gv & 0x7f) < 0x22) {
+                if (!pmic_write(pw, 0x15ac, 0x0022)) {
+                    for (int retry = 0; retry < 2000; retry++) {
+                        delay(50);
+                        if (!pmic_read(pw, 0x15a6, &gv) && (gv & 0x7f) >= 0x22) {
+                            break;
+                        }
+                    }
+                    printf("BEGONIA GPU: raised core rail to 612.5mV (reg 15a6=%04x)\n", gv);
+                }
+            }
             begonia_mali_probe(400000+(gv&127)*6250,400000+(sv&127)*6250,(ge&se&1)!=0);
         } else printf("BEGONIA GPU: PMIC identity/readback failed; untouched\n");
     }

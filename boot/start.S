@@ -145,5 +145,28 @@ watcher_entry:
 .global begonia_secondary_trampoline
 begonia_secondary_trampoline:
  msr daifset, #0xf
- br x0
+ mov x16, x0
+ mrs x2, CurrentEL
+ cmp x2, #8
+ b.ne 8f
+ mov x2, #(1 << 31)
+ msr hcr_el2, x2
+ mov x2, #3
+ msr cnthctl_el2, x2
+ msr cntvoff_el2, xzr
+ mov x2, #0x33ff
+ msr cptr_el2, x2
+ mrs x2, icc_sre_el2
+ orr x2, x2, #1
+ orr x2, x2, #8
+ msr icc_sre_el2, x2
+ isb
+ mov x2, #0x0800
+ movk x2, #0x30d0, lsl #16
+ msr sctlr_el1, x2
+ mov x2, #0x3c5
+ msr spsr_el2, x2
+ msr elr_el2, x16
+ eret
+8: br x16
 #endif

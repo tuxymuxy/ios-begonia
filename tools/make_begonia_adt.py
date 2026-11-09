@@ -42,9 +42,25 @@ def build(qemu=False,extents=None,identity=None,touch_firmware=None,data_extents
         import adt
         tree,_=adt.parse(identity)
         product=next(c for c in tree.children if c.name=='product')
-        extra.append(node('product',[(k,v) for k,f,v in product.props if not f and k not in ('name','AAPL,phandle')]))
+        prod_props = [(k,v) for k,f,v in product.props if not f and k not in ('name','AAPL,phandle','home-button-type')]
+        prod_props.append(('home-button-type', u32(2)))
+        extra.append(node('product', prod_props))
     compatible=(s('D22AP')+s('iPhone10,3') if identity else b'')+s('xiaomi,begonia')+s('AppleARM')
-    return node('device-tree',[('compatible',compatible),('model',s('iPhone10,3' if identity else 'BegoniaOpenKernel')),('target-type',s('D22')),('target-sub-type',s('D22AP')),('#address-cells',u32(2)),('#size-cells',u32(2))],[chosen,node('defaults'),node('options'),cpus,armio,node('pram',[('reg',u64(base+size,0x100000))])]+extra)
+    pad32 = lambda val: val.encode().ljust(32, b'\0')
+    root_props = [
+        ('compatible', compatible),
+        ('model', s('iPhone10,3' if identity else 'BegoniaOpenKernel')),
+        ('target-type', s('D22')),
+        ('target-sub-type', s('D22AP')),
+        ('serial-number', pad32('REDMIBEGONIA')),
+        ('mlb-serial-number', pad32('REDMIBEGONIAMLB00')),
+        ('model-number', pad32('MQAC2')),
+        ('region-info', pad32('LL/A')),
+        ('regulatory-model-number', pad32('A1865')),
+        ('#address-cells', u32(2)),
+        ('#size-cells', u32(2)),
+    ]
+    return node('device-tree', root_props, [chosen,node('defaults'),node('options'),cpus,armio,node('pram',[('reg',u64(base+size,0x100000))])]+extra)
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=pathlib.Path);p.add_argument('--qemu',action='store_true');p.add_argument('--extents',type=pathlib.Path);p.add_argument('--identity',type=pathlib.Path);p.add_argument('--touch-firmware',type=pathlib.Path);p.add_argument('--data-extents',type=pathlib.Path);a=p.parse_args()
     a.output.write_bytes(build(qemu=a.qemu,extents=a.extents.read_bytes() if a.extents else None,identity=a.identity.read_bytes() if a.identity else None,touch_firmware=a.touch_firmware.read_bytes() if a.touch_firmware else None,data_extents=a.data_extents.read_bytes() if a.data_extents else None));print(a.output)

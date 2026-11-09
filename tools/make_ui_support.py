@@ -10,9 +10,16 @@ parser.add_argument('--physical-touch',action='store_true')
 parser.add_argument('--quiet',action='store_true')
 parser.add_argument('--with-metal',action='store_true',help='stage PanVK, metal2vulkan, HakiosMetal bundle and GPU test binaries')
 parser.add_argument('--metal-client',action='append',default=[],help='opt in an additional named process; default is diagnostics only')
+parser.add_argument('--ca-metallib',type=Path,help='use a locally assembled QuartzCore shader library')
+parser.add_argument('--metal-frontend',type=Path,help='select the HakiosMetal bundle executable')
 args=parser.parse_args()
 if args.metal_client and (not args.with_metal or any(not s or not all(c.isascii() and (c.isalnum() or c in '._-') for c in s) for s in args.metal_client)):
     parser.error('--metal-client requires --with-metal and a literal process name')
+if (args.ca_metallib or args.metal_frontend) and not args.with_metal:
+    parser.error('--ca-metallib and --metal-frontend require --with-metal')
+for asset in (args.ca_metallib,args.metal_frontend):
+    if asset is not None and not asset.is_file():
+        parser.error(f'asset is not a file: {asset}')
 
 root=Path(__file__).resolve().parents[1];repo=root/'upstream/hakios-xnu-kernel'
 out=args.output_dir or root/'out/begonia-ui-support';dest=out/'root'
@@ -50,7 +57,7 @@ if args.gpu_service_test:
 
 if args.with_metal:
     # 0. Stage default.metallib fallback and updated inject libraries
-    metallib_src = root/'upstream/hakios-xnu-kernel/sysimage/rootfs/System/Library/Extensions/AppleMetalGLRenderer.bundle/default.metallib'
+    metallib_src = args.ca_metallib or repo/'sysimage/rootfs/System/Library/Extensions/AppleMetalGLRenderer.bundle/default.metallib'
     if metallib_src.exists():
         shutil.copy2(metallib_src, dest/'lib/default.metallib')
 
@@ -75,9 +82,10 @@ if args.with_metal:
 
     # 2. Stage HakiosMetal bundle
     bundle_bin = dest/'lib/HakiosMetal.bundle/HakiosMetal'
-    if (root/'out/metal-frontend-ios/HakiosMetal').exists():
+    frontend = args.metal_frontend or root/'out/metal-frontend-ios/HakiosMetal'
+    if frontend.exists():
         bundle_bin.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(root/'out/metal-frontend-ios/HakiosMetal', bundle_bin)
+        shutil.copy2(frontend, bundle_bin)
         subprocess.run(['xcrun', 'strip', '-S', '-x', str(bundle_bin)], check=True)
         subprocess.run(['codesign', '-s', '-', '-f', str(bundle_bin)], check=True)
         subprocess.run(['codesign', '--verify', '--strict', str(bundle_bin)], check=True)

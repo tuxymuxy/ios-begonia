@@ -3,6 +3,7 @@
 #include <string.h>
 #include "../kernel/bsd/dev/begonia_gpu_vm.h"
 static uint64_t memory[32][512];static unsigned allocated;static int fail;
+static struct beg_gpu_vm_table test_tables[BEG_GPU_VM_MAX_TABLES];
 static int allocate(void *ctx,struct beg_gpu_vm_table *table) {
  (void)ctx;if(fail || allocated==32)return -1;
  table->entries=memory[allocated];table->physical=0x100000000ull+allocated*16384ull;
@@ -10,6 +11,7 @@ static int allocate(void *ctx,struct beg_gpu_vm_table *table) {
 }
 static void reset(struct beg_gpu_vm *vm,unsigned limit) {
  memset(memory,0,sizeof memory);memset(vm,0,sizeof *vm);allocated=0;fail=0;
+ vm->tables=test_tables;
  vm->allocate=allocate;vm->limit=limit;
 }
 int main(void) {
@@ -34,6 +36,19 @@ int main(void) {
  vm.limit=4;assert(!beg_gpu_vm_map(&vm,0,0x110000000ull));
  reset(&vm,32);fail=1;assert(beg_gpu_vm_map(&vm,0,0x110000000ull));assert(!vm.count);
  reset(&vm,32);assert(!beg_gpu_vm_map(&vm,0,0x110000000ull));
+ assert(vm.count==4);
+ for(unsigned i=0;i<vm.count;i++) {
+  assert(vm.tables[i].dirty);
+  vm.tables[i].dirty=false;
+ }
+ assert(beg_gpu_vm_map(&vm,0,0x120000000ull)==-2);
+ for(unsigned i=0;i<vm.count;i++)assert(!vm.tables[i].dirty);
+ assert(!beg_gpu_vm_unmap(&vm,0));
+ for(unsigned i=0;i<vm.count-1;i++)assert(!vm.tables[i].dirty);
+ assert(vm.tables[vm.count-1].dirty);
+ vm.tables[vm.count-1].dirty=false;
+ assert(!beg_gpu_vm_map(&vm,0,0x110000000ull));
+ assert(vm.tables[vm.count-1].dirty);
  vm.tables[0].entries[1]=0x12345003;assert(beg_gpu_vm_map(&vm,1ull<<39,0x110000000ull));
  puts("G76 VM checks pass: disjoint VA regions, owned tables, overlap refusal, allocation failure and bounds");
 }
