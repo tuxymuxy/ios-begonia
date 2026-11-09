@@ -346,14 +346,14 @@ Kernel `out/kernel.begonia-native-ufs`, payload `out/native-metal-v80.payload`, 
   - Hardware IP qualification: verified CONNSYS registers live and responding with IP version `0x10020501`.
   - BTIF hardware FIFO & handshake setup with Serial Transport Protocol (STP) full mode and CRC-16 IBM validation.
 - **iOS 16 Wi-Fi Integration (`begonia_wlan` & `BegoniaWLAN`)**:
-  - BSD `ifnet` `en0` registered with `IFNET_SUBFAMILY_WIFI` and MAC `58:2c:db:be:60:11`.
+  - BSD `ifnet` `en0` registered with `IFNET_SUBFAMILY_WIFI` and a generated locally-administered MAC address.
   - Complete `SIOCGA80211` / `SIOCSA80211` ioctl dispatcher implementing all Apple80211 requirements: `IOC_CARD_CAPABILITIES`, `IOC_STATE`, `IOC_RSSI`, `IOC_NOISE`, `IOC_RSSI_BOUNDS`, `IOC_SCAN_REQ`, `IOC_SCAN_RESULT`, `IOC_ASSOCIATE`, `IOC_DISASSOCIATE`, `IOC_CHANNEL`, `IOC_SSID`, `IOC_BSSID`.
   - IOKit Registry: `BegoniaWLANStart()` publishes `IO80211Controller` and `BegoniaWLANInterface` with `IO80211InterfaceRole="Infrastructure"`. User client requests return `kIOReturnUnsupported`, forcing Apple80211.framework to cleanly use the ioctl dispatcher.
   - Kernel event dispatch: Posts `KEV_IEEE80211_CLASS` events (`M_POWER_CHANGED`, `M_LINK_CHANGED`, `M_ASSOC_DONE`, `M_SCAN_DONE`) so `wifid` and `configd` transition `en0` to active/associated.
   - Built-in DHCP & ARP responder: Synthesizes instantaneous DHCP lease (`192.168.1.100`, router `192.168.1.1`, DNS `1.1.1.1`), marking `en0` routable and displaying the Wi-Fi checkmark in iOS Settings.
 - **iOS 16 Bluetooth Integration (`begonia_bt` & `BegoniaBluetooth`)**:
   - Kernel control `com.sweet.bluetooth` (`CTL_FLAG_REG_SOCK_STREAM`) provides direct H4 HCI socket interface to `bluetoothd`.
-  - IOKit Registry: Publishes `"bluetooth"` IOService with MAC `58:2c:db:be:60:12`, `SweetBluetoothSupportedCommands`, `SweetBluetoothReady=true`, and `transport-speed` as 4-byte OSData (`00 c2 01 00` for 115200) matching `bluetoothd`'s CFData ABI.
+  - IOKit Registry: Publishes `"bluetooth"` IOService with a generated locally-administered MAC address, `SweetBluetoothSupportedCommands`, `SweetBluetoothReady=true`, and `transport-speed` as 4-byte OSData (`00 c2 01 00` for 115200) matching `bluetoothd`'s CFData ABI.
   - Vendor Command Emulation: Worker thread intercepts and answers Broadcom vendor commands (`0xfcxx`, `0x0c5a`, `0x0c5b`, `0x204a`) locally with Command Complete events, and passes standard HCI frames to CONNSYS STP Task 1 via BTIF.
   - `bluetool_shim`: MachService daemon listening on `com.apple.BlueTool`, responding to `RunBuiltinScript` `boot`, `init`, and `deepsleep` with `result = 0`.
   - `com.apple.bluetoothd.plist`: Injected `BT_HCI_TRANSPORT=H4:POSIX:com.sweet.bluetooth,115200` and `BT_BAUDRATE=115200`.
